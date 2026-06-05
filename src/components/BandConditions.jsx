@@ -46,8 +46,12 @@ function IndexBadge({ label, value, good, warn }) {
 }
 
 export default function BandConditions() {
-  const propData = useIPCEvent(window.api?.propagation?.onData, null)
+  const raw = useIPCEvent(window.api?.propagation?.onData, null)
   const [refreshing, setRefreshing] = useState(false)
+
+  // Separate good data from error payloads
+  const hasError = raw?.error != null
+  const propData = hasError ? null : raw
 
   const handleRefresh = async () => {
     setRefreshing(true)
@@ -91,6 +95,29 @@ export default function BandConditions() {
         <IndexBadge label="X-RAY" value={propData?.xray} good={99} warn={99} />
         <IndexBadge label="SPOTS" value={propData?.sunspots} good={50} warn={200} />
       </div>
+
+      {/* Error state */}
+      {hasError && (
+        <div
+          style={{
+            textAlign: 'center',
+            color: '#ff2200',
+            fontSize: '0.72rem',
+            letterSpacing: '0.15em',
+            border: '1px solid #440000',
+            padding: '6px 10px',
+            marginBottom: '6px',
+            background: '#1a0000'
+          }}
+        >
+          DATA UNAVAILABLE
+          {raw.error && (
+            <div style={{ fontSize: '0.55rem', marginTop: '3px', color: '#aa2200' }}>
+              {raw.error}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Band Grid */}
       <div style={{ flex: 1 }}>

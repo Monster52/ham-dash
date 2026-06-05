@@ -4,12 +4,20 @@ import https from 'https'
 let timer = null
 let dataCallback = null
 
+// HamQSL XML uses compound band names; normalize them to the keys the UI expects.
+const BAND_NAME_MAP = {
+  '80m-60m': ['80m'],
+  '40m':     ['40m'],
+  '30m-20m': ['20m'],
+  '17m-15m': ['17m', '15m'],
+  '12m-10m': ['12m', '10m'],
+}
+
 export function startPropagationTimer(onData) {
   dataCallback = onData
-  // Fetch every 60 minutes
   timer = setInterval(async () => {
-    const data = await fetchPropagation()
-    if (data) dataCallback?.(data)
+    const result = await fetchPropagation()
+    dataCallback?.(result)  // always emit — includes error field if failed
   }, 60 * 60 * 1000)
 }
 
@@ -19,19 +27,40 @@ export function stopPropagationTimer() {
 
 export async function fetchPropagation() {
   try {
-    const xml = await httpGet('https://www.hamqsl.com/solar.xml')
-    return parseXml(xml)
+    console.log('[propagation] fetching HamQSL XML...')
+    const { body: xml, status } = await httpGet('https://www.hamqsl.com/solar.xml')
+    console.log('[propagation] HTTP', status, '— raw response (first 500 chars):', xml.slice(0, 500))
+
+    if (status !== 200) {
+      const err = `HTTP ${status}`
+      console.error('[propagation]', err)
+      return { error: err, updated: new Date().toISOString() }
+    }
+
+    if (!xml.includes('<solar>')) {
+      console.error('[propagation] response is not HamQSL XML — got HTML or empty body')
+      return { error: 'Server returned non-XML response', updated: new Date().toISOString() }
+    }
+
+    const data = parseXml(xml)
+    if (!data) {
+      console.error('[propagation] parseXml returned null — unexpected XML structure')
+      return { error: 'Parse failed — unexpected XML structure', updated: new Date().toISOString() }
+    }
+    console.log('[propagation] parsed OK — SFI:', data.sfi, 'K:', data.kindex, 'bands:', Object.keys(data.bands))
+    return data
   } catch (e) {
-    return null
+    console.error('[propagation] fetch error:', e.message)
+    return { error: e.message, updated: new Date().toISOString() }
   }
 }
 
 function httpGet(url) {
   return new Promise((resolve, reject) => {
     https.get(url, { timeout: 15000 }, (res) => {
-      let data = ''
-      res.on('data', (chunk) => (data += chunk))
-      res.on('end', () => resolve(data))
+      let body = ''
+      res.on('data', (chunk) => (body += chunk))
+      res.on('end', () => resolve({ status: res.statusCode, body }))
       res.on('error', reject)
     }).on('error', reject).on('timeout', () => reject(new Error('Timeout')))
   })
@@ -47,24 +76,18 @@ function parseXml(xml) {
   const conditions = solardata['calculatedconditions']?.['band'] || []
   const bandArray = Array.isArray(conditions) ? conditions : [conditions]
 
-  const bands = {}
-  for (const band of bandArray) {
-    if (band && band['@_name']) {
-      bands[band['@_name']] = {
-        day: band['@_time'] === 'day' ? band['#text'] : bands[band['@_name']]?.day,
-        night: band['@_time'] === 'night' ? band['#text'] : bands[band['@_name']]?.night
-      }
-    }
-  }
-
-  // Handle duplicate band entries (day/night separate)
+  // Build band map, normalizing compound XML names (e.g. "30m-20m") to UI keys ("20m")
   const bandMap = {}
   for (const band of bandArray) {
     if (!band || !band['@_name']) continue
-    const name = band['@_name']
+    const xmlName = band['@_name']
     const time = band['@_time']
-    if (!bandMap[name]) bandMap[name] = {}
-    bandMap[name][time] = band['#text']
+    const condition = band['#text']
+    const uiKeys = BAND_NAME_MAP[xmlName] || [xmlName]
+    for (const key of uiKeys) {
+      if (!bandMap[key]) bandMap[key] = {}
+      bandMap[key][time] = condition
+    }
   }
 
   return {

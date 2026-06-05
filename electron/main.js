@@ -25,6 +25,7 @@ const store = new Store({
 })
 
 let mainWindow = null
+let lastPropagationData = null
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -49,6 +50,13 @@ function createWindow() {
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     shell.openExternal(url)
     return { action: 'deny' }
+  })
+
+  // Re-send cached propagation data once the renderer is ready to receive IPC
+  mainWindow.webContents.on('did-finish-load', () => {
+    if (lastPropagationData) {
+      mainWindow.webContents.send('propagation:data', lastPropagationData)
+    }
   })
 
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
@@ -98,11 +106,14 @@ function initHardware() {
   })
 
   startPropagationTimer((data) => {
+    lastPropagationData = data
     mainWindow?.webContents.send('propagation:data', data)
   })
 
+  // Fetch immediately on startup; cache and send when renderer is ready
   fetchPropagation().then((data) => {
-    if (data) mainWindow?.webContents.send('propagation:data', data)
+    lastPropagationData = data
+    mainWindow?.webContents.send('propagation:data', data)
   })
 }
 
@@ -147,7 +158,8 @@ ipcMain.handle('keyer:dah', async () => {
 
 ipcMain.handle('propagation:refresh', async () => {
   const data = await fetchPropagation()
-  if (data) mainWindow?.webContents.send('propagation:data', data)
+  lastPropagationData = data
+  mainWindow?.webContents.send('propagation:data', data)
   return data
 })
 
