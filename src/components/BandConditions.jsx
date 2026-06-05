@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useIPCEvent } from '../hooks/useIPC'
 
 const BANDS = ['80m', '40m', '20m', '17m', '15m', '10m']
@@ -46,10 +46,17 @@ function IndexBadge({ label, value, good, warn }) {
 }
 
 export default function BandConditions() {
-  const raw = useIPCEvent(window.api?.propagation?.onData, null)
+  const pushed = useIPCEvent(window.api?.propagation?.onData, null)
+  const [pulled, setPulled] = useState(null)
   const [refreshing, setRefreshing] = useState(false)
 
-  // Separate good data from error payloads
+  // Pull cached data on mount — resolves after React is ready, no race condition
+  useEffect(() => {
+    window.api?.propagation?.get().then(setPulled)
+  }, [])
+
+  // Pushed updates (hourly timer) override the pulled value
+  const raw = pushed ?? pulled
   const hasError = raw?.error != null
   const propData = hasError ? null : raw
 

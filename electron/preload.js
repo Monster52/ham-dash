@@ -42,6 +42,7 @@ const api = {
       ipcRenderer.on('propagation:data', handler)
       return () => ipcRenderer.removeListener('propagation:data', handler)
     },
+    get: () => ipcRenderer.invoke('propagation:get'),
     refresh: () => ipcRenderer.invoke('propagation:refresh')
   },
 

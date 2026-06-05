@@ -52,13 +52,6 @@ function createWindow() {
     return { action: 'deny' }
   })
 
-  // Re-send cached propagation data once the renderer is ready to receive IPC
-  mainWindow.webContents.on('did-finish-load', () => {
-    if (lastPropagationData) {
-      mainWindow.webContents.send('propagation:data', lastPropagationData)
-    }
-  })
-
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
     mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
   } else {
@@ -154,6 +147,14 @@ ipcMain.handle('keyer:dit', async () => {
 
 ipcMain.handle('keyer:dah', async () => {
   return sendCW('-', store.get('wpm'))
+})
+
+ipcMain.handle('propagation:get', async () => {
+  // Pull: renderer calls this on mount — returns cached data or fetches fresh
+  if (lastPropagationData) return lastPropagationData
+  const data = await fetchPropagation()
+  lastPropagationData = data
+  return data
 })
 
 ipcMain.handle('propagation:refresh', async () => {
