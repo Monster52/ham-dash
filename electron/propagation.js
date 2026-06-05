@@ -89,13 +89,31 @@ function parseXml(xml) {
     }
   }
 
+  const sfi = solardata['solarflux']
+  const kindex = solardata['kindex']
+
   return {
-    sfi: solardata['solarflux'],
+    sfi,
     aindex: solardata['aindex'],
-    kindex: solardata['kindex'],
+    kindex,
     xray: solardata['xray'],
     sunspots: solardata['sunspots'],
     bands: bandMap,
+    muf: deriveMuf(sfi, kindex),
     updated: new Date().toISOString()
+  }
+}
+
+// URSI empirical MUF estimate from solar flux + K-index.
+// foF2 clamped to minimum 2.0 MHz (ionosphere always present).
+function deriveMuf(sfi, kindex) {
+  const sfiNum = parseFloat(sfi)
+  const kNum = parseFloat(kindex)
+  if (isNaN(sfiNum) || isNaN(kNum)) return null
+  const foF2 = Math.max(2.0, (0.00825 * sfiNum + 1.9) * (1 - 0.1 * kNum))
+  return {
+    foF2: Math.round(foF2 * 10) / 10,
+    muf: Math.round(foF2 * 3.8 * 10) / 10,
+    source: 'est.'
   }
 }
