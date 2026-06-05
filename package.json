@@ -7,6 +7,7 @@
     "dev": "electron-vite dev",
     "build": "electron-vite build",
     "preview": "electron-vite preview",
+    "rebuild": "electron-rebuild -f -w better-sqlite3",
     "dist": "npm run build && electron-builder",
     "dist:deb": "npm run build && electron-builder --linux deb"
   },
@@ -20,6 +21,8 @@
   "dependencies": {
     "@electron-toolkit/preload": "^3.0.0",
     "@electron-toolkit/utils": "^3.0.0",
+    "adm-zip": "^0.5.16",
+    "better-sqlite3": "^12.10.0",
     "chokidar": "^3.6.0",
     "electron-store": "^8.2.0",
     "fast-xml-parser": "^4.4.1",
@@ -33,6 +36,7 @@
     "autoprefixer": "^10.4.19",
     "electron": "^31.0.0",
     "electron-builder": "^24.13.3",
+    "electron-rebuild": "^3.2.9",
     "electron-vite": "^2.3.0",
     "playwright-core": "^1.60.0",
     "postcss": "^8.4.38",

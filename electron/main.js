@@ -7,6 +7,8 @@ import { startKeyer, stopKeyer, sendCW, setWpm } from './keyer.js'
 import { startGPS, stopGPS } from './gps.js'
 import { startAdifWatcher, stopAdifWatcher } from './adif-watcher.js'
 import { fetchPropagation, startPropagationTimer, stopPropagationTimer } from './propagation.js'
+import { openDatabase, closeDatabase, insertQso, listQsos, searchQsos, deleteQso, getStats } from './db.js'
+import { exportAdif } from './adif-export.js'
 
 const store = new Store({
   defaults: {
@@ -26,6 +28,7 @@ const store = new Store({
 
 let mainWindow = null
 let lastPropagationData = null
+let db = null
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -66,6 +69,7 @@ app.whenReady().then(() => {
     optimizer.watchWindowShortcuts(window)
   })
 
+  db = openDatabase()
   createWindow()
   initHardware()
 
@@ -76,8 +80,13 @@ app.whenReady().then(() => {
 
 app.on('window-all-closed', () => {
   shutdownHardware()
+  closeDatabase()
   if (process.platform !== 'darwin') app.quit()
 })
+
+function emitQsoUpdate() {
+  mainWindow?.webContents.send('qso:log', listQsos(50))
+}
 
 function initHardware() {
   const settings = store.store
@@ -94,7 +103,7 @@ function initHardware() {
     mainWindow?.webContents.send('gps:status', data)
   })
 
-  startAdifWatcher(settings.adifPath, (qsos) => {
+  startAdifWatcher(settings.adifPath, db, (qsos) => {
     mainWindow?.webContents.send('qso:log', qsos)
   })
 
@@ -103,7 +112,6 @@ function initHardware() {
     mainWindow?.webContents.send('propagation:data', data)
   })
 
-  // Fetch immediately on startup; cache and send when renderer is ready
   fetchPropagation().then((data) => {
     lastPropagationData = data
     mainWindow?.webContents.send('propagation:data', data)
@@ -150,7 +158,6 @@ ipcMain.handle('keyer:dah', async () => {
 })
 
 ipcMain.handle('propagation:get', async () => {
-  // Pull: renderer calls this on mount — returns cached data or fetches fresh
   if (lastPropagationData) return lastPropagationData
   const data = await fetchPropagation()
   lastPropagationData = data
@@ -164,6 +171,52 @@ ipcMain.handle('propagation:refresh', async () => {
   return data
 })
 
+// --- QSO handlers ---
+
+ipcMain.handle('qso:add', async (_, qso) => {
+  try {
+    const result = insertQso(qso)
+    emitQsoUpdate()
+    return { success: true, id: result.id }
+  } catch (e) {
+    return { success: false, error: e.message }
+  }
+})
+
+ipcMain.handle('qso:list', async () => {
+  return listQsos(50)
+})
+
+ipcMain.handle('qso:search', async (_, { query }) => {
+  if (!query?.trim()) return listQsos(50)
+  return searchQsos(query.trim())
+})
+
+ipcMain.handle('qso:delete', async (_, { id }) => {
+  try {
+    deleteQso(id)
+    emitQsoUpdate()
+    return { success: true }
+  } catch (e) {
+    return { success: false, error: e.message }
+  }
+})
+
+ipcMain.handle('qso:export', async () => {
+  try {
+    const filepath = exportAdif()
+    return { success: true, filepath }
+  } catch (e) {
+    return { success: false, error: e.message }
+  }
+})
+
+ipcMain.handle('qso:stats', async () => {
+  return getStats()
+})
+
+// --- Settings ---
+
 ipcMain.handle('settings:get', async () => {
   return store.store
 })
@@ -172,15 +225,16 @@ ipcMain.handle('settings:set', async (_, newSettings) => {
   const old = store.store
   store.set(newSettings)
 
-  // Restart hardware if connection settings changed
   if (
     newSettings.rigctldHost !== old.rigctldHost ||
     newSettings.rigctldPort !== old.rigctldPort
   ) {
     stopRigctld()
-    startRigctld(newSettings.rigctldHost || old.rigctldHost, newSettings.rigctldPort || old.rigctldPort, (data) => {
-      mainWindow?.webContents.send('rig:status', data)
-    })
+    startRigctld(
+      newSettings.rigctldHost || old.rigctldHost,
+      newSettings.rigctldPort || old.rigctldPort,
+      (data) => { mainWindow?.webContents.send('rig:status', data) }
+    )
   }
 
   if (newSettings.keyerPort && newSettings.keyerPort !== old.keyerPort) {
@@ -192,7 +246,7 @@ ipcMain.handle('settings:set', async (_, newSettings) => {
 
   if (newSettings.adifPath && newSettings.adifPath !== old.adifPath) {
     stopAdifWatcher()
-    startAdifWatcher(newSettings.adifPath, (qsos) => {
+    startAdifWatcher(newSettings.adifPath, db, (qsos) => {
       mainWindow?.webContents.send('qso:log', qsos)
     })
   }

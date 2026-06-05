@@ -52,7 +52,13 @@ const api = {
       const handler = (_, data) => cb(data)
       ipcRenderer.on('qso:log', handler)
       return () => ipcRenderer.removeListener('qso:log', handler)
-    }
+    },
+    add:    (qso)     => ipcRenderer.invoke('qso:add', qso),
+    list:   ()        => ipcRenderer.invoke('qso:list'),
+    search: (query)   => ipcRenderer.invoke('qso:search', { query }),
+    delete: (id)      => ipcRenderer.invoke('qso:delete', { id }),
+    export: ()        => ipcRenderer.invoke('qso:export'),
+    stats:  ()        => ipcRenderer.invoke('qso:stats')
   },
 
   // Settings
