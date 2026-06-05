@@ -6,8 +6,7 @@ let dataCallback = null
 
 // HamQSL XML uses compound band names; normalize them to the keys the UI expects.
 const BAND_NAME_MAP = {
-  '80m-60m': ['80m'],
-  '40m':     ['40m'],
+  '80m-40m': ['80m', '40m'],
   '30m-20m': ['20m'],
   '17m-15m': ['17m', '15m'],
   '12m-10m': ['12m', '10m'],
@@ -28,7 +27,7 @@ export function stopPropagationTimer() {
 export async function fetchPropagation() {
   try {
     console.log('[propagation] fetching HamQSL XML...')
-    const { body: xml, status } = await httpGet('https://www.hamqsl.com/solar.xml')
+    const { body: xml, status } = await httpGet('https://www.hamqsl.com/solarxml.php')
     console.log('[propagation] HTTP', status, '— raw response (first 500 chars):', xml.slice(0, 500))
 
     if (status !== 200) {
