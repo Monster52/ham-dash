@@ -69,11 +69,10 @@ function RBNMap({ spots }) {
   )
   const graticule = useMemo(() => geoGraticule()(), [])
 
-  // rotate centers the Atlantic; fitSize eliminates dead space by computing
-  // scale and translate automatically to fill [VP_W, VP_H] exactly.
+  // fitSize fills [VP_W, VP_H] tightly to BOUNDS_GEOJSON with zero offset.
+  // Atlantic-centered view comes from the lon range (-130..+60) in BOUNDS_GEOJSON.
   const projection = useMemo(() =>
     geoEquirectangular()
-      .rotate([30, -20])
       .fitSize([VP_W, VP_H], BOUNDS_GEOJSON),
     []
   )
@@ -306,8 +305,8 @@ export default function RBNPanel() {
         </div>
       </div>
 
-      {/* Map — starts immediately below header, grows to fill space */}
-      <div style={{ flex: '1 1 auto', borderBottom: '1px solid #1a3a1a', overflow: 'hidden', margin: 0, padding: 0 }}>
+      {/* Map — dominates available space (flex 3 vs spot list flex 1) */}
+      <div style={{ flex: '3 1 0', minHeight: '200px', borderBottom: '1px solid #1a3a1a', overflow: 'hidden', margin: 0, padding: 0 }}>
         <RBNMap spots={spots} />
       </div>
 
@@ -352,8 +351,8 @@ export default function RBNPanel() {
         </div>
       )}
 
-      {/* Spot list — newest to oldest, max 10, up to 12h window */}
-      <div style={{ overflowY: 'auto', flexShrink: 0, maxHeight: '280px', paddingBottom: '4px' }}>
+      {/* Spot list — grows to fill remaining space (flex 1 vs map flex 3) */}
+      <div style={{ overflowY: 'auto', flex: '1 1 0', minHeight: '80px', paddingBottom: '4px' }}>
         {spots.slice(0, 10).map((s, i) => (
           <SpotRow key={s.id} spot={s} idx={i} tick={tick} />
         ))}
