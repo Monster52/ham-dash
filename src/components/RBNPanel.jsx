@@ -98,7 +98,7 @@ function RBNMap({ spots }) {
     <svg
       viewBox={`0 0 ${VP_W} ${VP_H}`}
       preserveAspectRatio="none"
-      style={{ width: '100%', height: '100%', display: 'block', background: '#0a0f0a' }}
+      style={{ width: '100%', height: '100%', display: 'block', background: '#0a0f0a', margin: 0, padding: 0 }}
     >
       {/* Graticule (grid lines) */}
       <path d={pathGen(graticule)} fill="none" stroke="#0f1a0f" strokeWidth={0.5} />
@@ -275,7 +275,7 @@ export default function RBNPanel() {
   return (
     <div className="panel" style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       {/* Header */}
-      <div className="panel-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
+      <div className="panel-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0, paddingBottom: 0, marginBottom: 0 }}>
         <span>RBN — KJ5NUJ</span>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           {recentSpots.length > 0 ? (
@@ -301,8 +301,8 @@ export default function RBNPanel() {
         </div>
       </div>
 
-      {/* Map — grows to fill available vertical space */}
-      <div style={{ flex: '1 1 auto', minHeight: '350px', borderBottom: '1px solid #1a3a1a', overflow: 'hidden' }}>
+      {/* Map — flush below header, grows to fill available vertical space */}
+      <div style={{ flex: '1 1 auto', minHeight: '350px', borderBottom: '1px solid #1a3a1a', overflow: 'hidden', margin: 0, padding: 0 }}>
         <RBNMap spots={spots} />
       </div>
 
@@ -347,8 +347,8 @@ export default function RBNPanel() {
         </div>
       )}
 
-      {/* Spot list — capped at 10 rows / 200px */}
-      <div style={{ maxHeight: '200px', overflowY: 'auto', flexShrink: 0 }}>
+      {/* Spot list — auto height up to 200px, flush to panel bottom */}
+      <div style={{ flex: '1 1 auto', maxHeight: '200px', overflowY: 'auto', paddingBottom: '4px' }}>
         {spots.slice(0, 10).map((s, i) => (
           <SpotRow key={s.id} spot={s} idx={i} tick={tick} />
         ))}
