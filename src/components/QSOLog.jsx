@@ -6,30 +6,25 @@ const PHONE_MODES = new Set(['SSB', 'USB', 'LSB', 'AM', 'FM'])
 
 function utcNow() {
   const now = new Date()
-  return {
-    date: now.toISOString().slice(0, 10),
-    time: now.toISOString().slice(11, 15)
-  }
+  return { date: now.toISOString().slice(0, 10), time: now.toISOString().slice(11, 15) }
 }
 
 function freqToBand(freq) {
   const f = parseFloat(freq)
   if (isNaN(f)) return ''
-  if (f >= 1.8   && f <= 2.0)    return '160m'
-  if (f >= 3.5   && f <= 4.0)    return '80m'
-  if (f >= 7.0   && f <= 7.3)    return '40m'
-  if (f >= 10.1  && f <= 10.15)  return '30m'
-  if (f >= 14.0  && f <= 14.35)  return '20m'
+  if (f >= 1.8 && f <= 2.0) return '160m'
+  if (f >= 3.5 && f <= 4.0) return '80m'
+  if (f >= 7.0 && f <= 7.3) return '40m'
+  if (f >= 10.1 && f <= 10.15) return '30m'
+  if (f >= 14.0 && f <= 14.35) return '20m'
   if (f >= 18.068 && f <= 18.168) return '17m'
-  if (f >= 21.0  && f <= 21.45)  return '15m'
-  if (f >= 24.89 && f <= 24.99)  return '12m'
-  if (f >= 28.0  && f <= 29.7)   return '10m'
+  if (f >= 21.0 && f <= 21.45) return '15m'
+  if (f >= 24.89 && f <= 24.99) return '12m'
+  if (f >= 28.0 && f <= 29.7) return '10m'
   return ''
 }
 
-function defaultRst(mode) {
-  return PHONE_MODES.has(mode) ? '59' : '599'
-}
+function defaultRst(mode) { return PHONE_MODES.has(mode) ? '59' : '599' }
 
 function blankForm(freq = '', mode = 'CW') {
   const { date, time } = utcNow()
@@ -37,146 +32,60 @@ function blankForm(freq = '', mode = 'CW') {
   return { callsign: '', freq, mode, rst_sent: rst, rst_rcvd: rst, skcc_nr: '', date_on: date, time_on: time, notes: '' }
 }
 
-// ---- sub-components ----
+const INP = {
+  background: '#081208', border: '1px solid #1a3a1a', color: '#00ff41',
+  fontFamily: '"Share Tech Mono", monospace', fontSize: '0.72rem',
+  padding: '3px 6px', outline: 'none', width: '100%'
+}
+const INP_FOCUS = { borderColor: '#00ff41' }
+const INP_RO = { ...INP, background: '#0a120a', border: '1px solid #1a2a1a', color: '#00551a' }
 
-function Input({ label, value, onChange, readOnly, placeholder, style = {} }) {
+function Inp({ value, onChange, placeholder, readOnly, type = 'text', style = {} }) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-      <label style={{ fontSize: '0.5rem', color: '#00551a', letterSpacing: '0.1em' }}>{label}</label>
-      <input
-        value={value}
-        onChange={onChange}
-        readOnly={readOnly}
-        placeholder={placeholder}
-        style={{
-          background: readOnly ? '#0a120a' : '#081208',
-          border: `1px solid ${readOnly ? '#1a2a1a' : '#1a3a1a'}`,
-          color: readOnly ? '#00551a' : '#00ff41',
-          fontFamily: '"Share Tech Mono", monospace',
-          fontSize: '0.72rem',
-          padding: '3px 6px',
-          outline: 'none',
-          width: '100%',
-          ...style
-        }}
-        onFocus={e => { if (!readOnly) e.target.style.borderColor = '#00ff41' }}
-        onBlur={e => { if (!readOnly) e.target.style.borderColor = '#1a3a1a' }}
-      />
-    </div>
+    <input
+      type={type}
+      value={value}
+      onChange={onChange}
+      readOnly={readOnly}
+      placeholder={placeholder}
+      style={{ ...(readOnly ? INP_RO : INP), ...style }}
+      onFocus={e => { if (!readOnly) e.target.style.borderColor = '#00ff41' }}
+      onBlur={e => { if (!readOnly) e.target.style.borderColor = '#1a3a1a' }}
+    />
   )
 }
 
-function StatsBar({ stats }) {
-  if (!stats) return null
-  const topBands = Object.entries(stats.bands || {}).slice(0, 4).map(([b, c]) => `${b}(${c})`).join(' ')
-  const topModes = Object.entries(stats.modes || {}).slice(0, 3).map(([m, c]) => `${m}(${c})`).join(' ')
+function ModeSelect({ value, onChange, style = {} }) {
   return (
-    <div style={{
-      fontSize: '0.58rem',
-      color: '#00551a',
-      padding: '3px 4px',
-      borderTop: '1px solid #1a3a1a',
-      borderBottom: '1px solid #1a3a1a',
-      letterSpacing: '0.05em',
-      whiteSpace: 'nowrap',
-      overflow: 'hidden',
-      textOverflow: 'ellipsis'
-    }}>
-      <span style={{ color: '#00ff41' }}>Total: {stats.total}</span>
-      {' | '}
-      <span style={{ color: '#ffb000' }}>SKCC: {stats.skcc_count}</span>
-      {topBands && <>{' | '}<span>Bands: {topBands}</span></>}
-      {topModes && <>{' | '}<span>Modes: {topModes}</span></>}
-    </div>
+    <select
+      value={value}
+      onChange={onChange}
+      style={{ ...INP, ...style }}
+      onFocus={e => { e.target.style.borderColor = '#00ff41' }}
+      onBlur={e => { e.target.style.borderColor = '#1a3a1a' }}
+    >
+      {MODES.map(m => <option key={m} value={m}>{m}</option>)}
+    </select>
   )
 }
 
-const COL_WIDTHS = '72px 100px 78px 44px 56px 80px 72px 1fr 44px 28px'
+// ---- Shared state logic (used by both compact and expanded views) ----
 
-function TableRow({ qso, onDelete, idx }) {
-  const [confirmDel, setConfirmDel] = useState(false)
-  const srcColor = qso.source === 'skcclogger' ? '#00ff41' : '#ffb000'
-  const srcLabel = qso.source === 'skcclogger' ? 'SKCC' : 'MAN'
-  const notes = qso.notes || ''
-
-  return (
-    <div style={{
-      display: 'grid',
-      gridTemplateColumns: COL_WIDTHS,
-      alignItems: 'center',
-      padding: '2px 4px',
-      background: idx % 2 === 0 ? 'transparent' : 'rgba(0,255,65,0.03)',
-      borderBottom: '1px solid #0d1a0d',
-      fontSize: '0.65rem',
-      fontFamily: '"Share Tech Mono", monospace',
-      gap: '4px'
-    }}>
-      <span style={{ color: '#00551a' }}>{(qso.time_on || '----')}Z</span>
-      <span style={{ color: '#00ff41', letterSpacing: '0.05em' }}>{qso.callsign}</span>
-      <span style={{ color: '#ffb000' }}>{qso.freq ? Number(qso.freq).toFixed(3) : '---'}</span>
-      <span style={{ color: '#00aa2b' }}>{qso.band || '---'}</span>
-      <span style={{ color: '#00aa2b' }}>{qso.mode || '---'}</span>
-      <span style={{ color: '#00551a' }}>{qso.rst_sent || '-'}/{qso.rst_rcvd || '-'}</span>
-      <span style={{ color: '#00551a' }}>{qso.skcc_nr || '—'}</span>
-      <span
-        style={{ color: '#335533', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-        title={notes}
-      >
-        {notes.length > 30 ? notes.slice(0, 30) + '…' : notes || ''}
-      </span>
-      <span style={{
-        color: srcColor,
-        fontSize: '0.55rem',
-        border: `1px solid ${srcColor}44`,
-        padding: '1px 3px',
-        textAlign: 'center'
-      }}>
-        {srcLabel}
-      </span>
-      <button
-        onClick={() => confirmDel ? onDelete(qso.id) : setConfirmDel(true)}
-        onBlur={() => setConfirmDel(false)}
-        style={{
-          background: 'transparent',
-          border: confirmDel ? '1px solid #ff2200' : 'none',
-          color: confirmDel ? '#ff2200' : '#335533',
-          cursor: 'pointer',
-          fontFamily: 'monospace',
-          fontSize: '0.65rem',
-          padding: '0 2px',
-          lineHeight: 1
-        }}
-        title={confirmDel ? 'Click again to confirm delete' : 'Delete'}
-      >
-        {confirmDel ? '!' : '✕'}
-      </button>
-    </div>
-  )
-}
-
-// ---- main component ----
-
-export default function QSOLog() {
+function useQSOLog() {
   const rigStatus = useIPCEvent(window.api?.rig?.onStatus, null)
   const pushed = useIPCEvent(window.api?.qso?.onLog, null)
-
   const [qsos, setQsos] = useState([])
   const [stats, setStats] = useState(null)
   const [form, setForm] = useState(() => blankForm())
   const [freqLocked, setFreqLocked] = useState(false)
   const [modeLocked, setModeLocked] = useState(false)
   const [toast, setToast] = useState(null)
-  const [search, setSearch] = useState('')
-  const [searchResults, setSearchResults] = useState(null)
-  const searchTimer = useRef(null)
 
-  // Initial data load
   useEffect(() => {
     window.api?.qso?.list().then(rows => { if (rows) setQsos(rows) })
     window.api?.qso?.stats().then(s => { if (s) setStats(s) })
   }, [])
 
-  // Push updates from ADIF sync
   useEffect(() => {
     if (pushed) {
       setQsos(pushed)
@@ -184,7 +93,6 @@ export default function QSOLog() {
     }
   }, [pushed])
 
-  // Auto-fill freq from rig when not locked
   useEffect(() => {
     if (!rigStatus) return
     if (!freqLocked && rigStatus.freq) {
@@ -200,24 +108,12 @@ export default function QSOLog() {
     }
   }, [rigStatus, freqLocked, modeLocked])
 
-  // Auto-set RST defaults when mode changes
   useEffect(() => {
     setForm(f => {
       const rst = defaultRst(f.mode)
       return { ...f, rst_sent: rst, rst_rcvd: rst }
     })
   }, [form.mode])
-
-  // Debounced search
-  useEffect(() => {
-    clearTimeout(searchTimer.current)
-    if (!search.trim()) { setSearchResults(null); return }
-    searchTimer.current = setTimeout(async () => {
-      const results = await window.api?.qso?.search(search)
-      setSearchResults(results || [])
-    }, 300)
-    return () => clearTimeout(searchTimer.current)
-  }, [search])
 
   const showToast = useCallback((msg, type = 'ok') => {
     setToast({ msg, type })
@@ -242,20 +138,19 @@ export default function QSOLog() {
 
   async function handleLog() {
     if (!form.callsign.trim()) { showToast('CALLSIGN required', 'err'); return }
-    if (!form.freq)             { showToast('FREQ required', 'err'); return }
-    if (!form.mode)             { showToast('MODE required', 'err'); return }
+    if (!form.freq) { showToast('FREQ required', 'err'); return }
+    if (!form.mode) { showToast('MODE required', 'err'); return }
 
     const result = await window.api?.qso?.add({
       callsign: form.callsign.toUpperCase(),
-      freq:     parseFloat(form.freq),
-      mode:     form.mode,
+      freq: parseFloat(form.freq),
+      mode: form.mode,
       rst_sent: form.rst_sent || defaultRst(form.mode),
       rst_rcvd: form.rst_rcvd || defaultRst(form.mode),
-      date_on:  form.date_on,
-      time_on:  form.time_on,
-      skcc_nr:  form.skcc_nr || null,
-      notes:    form.notes   || null,
-      source:   'manual'
+      date_on: form.date_on, time_on: form.time_on,
+      skcc_nr: form.skcc_nr || null,
+      notes: form.notes || null,
+      source: 'manual'
     })
 
     if (result?.success) {
@@ -263,7 +158,7 @@ export default function QSOLog() {
       handleClear()
       const [rows, s] = await Promise.all([window.api.qso.list(), window.api.qso.stats()])
       if (rows) setQsos(rows)
-      if (s)    setStats(s)
+      if (s) setStats(s)
     } else {
       showToast(result?.error || 'LOG FAILED', 'err')
     }
@@ -273,11 +168,7 @@ export default function QSOLog() {
     await window.api?.qso?.delete(id)
     const [rows, s] = await Promise.all([window.api.qso.list(), window.api.qso.stats()])
     if (rows) setQsos(rows)
-    if (s)    setStats(s)
-    if (search) {
-      const results = await window.api?.qso?.search(search)
-      setSearchResults(results || [])
-    }
+    if (s) setStats(s)
   }
 
   async function handleExport() {
@@ -286,156 +177,330 @@ export default function QSOLog() {
     else showToast(result?.error || 'EXPORT FAILED', 'err')
   }
 
+  return {
+    form, setField, freqLocked, setFreqLocked, modeLocked, setModeLocked,
+    qsos, stats, toast, handleLog, handleClear, handleDelete, handleExport
+  }
+}
+
+// ---- Compact row table ----
+
+const COL_WIDTHS = '60px 90px 70px 40px 50px 72px 68px 1fr 40px 24px'
+
+function QSORow({ qso, onDelete, idx }) {
+  const [confirmDel, setConfirmDel] = useState(false)
+  const srcColor = qso.source === 'skcclogger' ? '#00ff41' : '#ffb000'
+
+  return (
+    <div style={{
+      display: 'grid', gridTemplateColumns: COL_WIDTHS, gap: '4px',
+      padding: '2px 4px', fontSize: '0.63rem',
+      background: idx % 2 === 0 ? 'transparent' : 'rgba(0,255,65,0.02)',
+      borderBottom: '1px solid #0d1a0d', alignItems: 'center'
+    }}>
+      <span style={{ color: '#00551a' }}>{(qso.time_on || '----')}Z</span>
+      <span style={{ color: '#00ff41' }}>{qso.callsign}</span>
+      <span style={{ color: '#ffb000' }}>{qso.freq ? Number(qso.freq).toFixed(3) : '---'}</span>
+      <span style={{ color: '#00aa2b' }}>{qso.band || '---'}</span>
+      <span style={{ color: '#00aa2b' }}>{qso.mode || '---'}</span>
+      <span style={{ color: '#00551a' }}>{qso.rst_sent}/{qso.rst_rcvd}</span>
+      <span style={{ color: '#00551a' }}>{qso.skcc_nr || '—'}</span>
+      <span style={{ color: '#335533', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+        title={qso.notes || ''}>{qso.notes ? qso.notes.slice(0, 30) : ''}</span>
+      <span style={{ color: srcColor, fontSize: '0.55rem', border: `1px solid ${srcColor}44`, padding: '0 2px' }}>
+        {qso.source === 'skcclogger' ? 'SKCC' : 'MAN'}
+      </span>
+      <button
+        onClick={() => confirmDel ? onDelete(qso.id) : setConfirmDel(true)}
+        onBlur={() => setConfirmDel(false)}
+        style={{
+          background: 'transparent', border: confirmDel ? '1px solid #ff2200' : 'none',
+          color: confirmDel ? '#ff2200' : '#335533', cursor: 'pointer',
+          fontFamily: 'monospace', fontSize: '0.65rem', padding: '0 2px'
+        }}
+        title={confirmDel ? 'Confirm delete' : 'Delete'}
+      >
+        {confirmDel ? '!' : '✕'}
+      </button>
+    </div>
+  )
+}
+
+// ---- Expanded full overlay ----
+
+function ExpandedLog({ onClose, shared }) {
+  const {
+    form, setField, freqLocked, setFreqLocked, modeLocked, setModeLocked,
+    qsos, stats, toast, handleLog, handleClear, handleDelete, handleExport
+  } = shared
+
+  const [search, setSearch] = useState('')
+  const [searchResults, setSearchResults] = useState(null)
+  const searchTimer = useRef(null)
+
+  useEffect(() => {
+    clearTimeout(searchTimer.current)
+    if (!search.trim()) { setSearchResults(null); return }
+    searchTimer.current = setTimeout(async () => {
+      const r = await window.api?.qso?.search(search)
+      setSearchResults(r || [])
+    }, 300)
+    return () => clearTimeout(searchTimer.current)
+  }, [search])
+
   const displayQsos = searchResults ?? qsos
 
-  const inp = { fontSize: '0.72rem', padding: '3px 6px' }
-  const btnBase = {
-    fontFamily: '"Share Tech Mono", monospace',
-    fontSize: '0.7rem',
-    padding: '4px 12px',
-    cursor: 'pointer',
-    letterSpacing: '0.1em',
-    border: 'none'
-  }
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.93)', zIndex: 200,
+      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px'
+    }} onClick={e => e.target === e.currentTarget && onClose()}>
+      <div style={{
+        width: '100%', maxWidth: '1600px', height: '90vh',
+        background: '#0f1a0f', border: '1px solid #1a3a1a',
+        boxShadow: '0 0 30px rgba(0,255,65,0.2)', display: 'flex', flexDirection: 'column',
+        padding: '12px', borderRadius: '4px', overflow: 'hidden'
+      }}>
+        {/* Header */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', flexShrink: 0 }}>
+          <span style={{ color: '#00ff41', fontSize: '0.9rem', letterSpacing: '0.2em' }}>QSO LOG</span>
+          <button onClick={onClose} style={{
+            background: 'transparent', border: '1px solid #1a3a1a', color: '#00551a',
+            fontFamily: '"Share Tech Mono", monospace', fontSize: '0.7rem',
+            padding: '3px 12px', cursor: 'pointer'
+          }}>CLOSE ✕</button>
+        </div>
+
+        {/* Form — 3-column grid */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '6px', marginBottom: '6px', flexShrink: 0 }}>
+          {/* Row 1 */}
+          <div><label style={LBL}>CALLSIGN *</label>
+            <Inp value={form.callsign} placeholder="KJ5NUJ"
+              onChange={e => setField('callsign', e.target.value.toUpperCase())} /></div>
+          <div><label style={LBL}>FREQ (MHz) *</label>
+            <Inp value={form.freq} placeholder="14.060"
+              onChange={e => { setFreqLocked(true); setField('freq', e.target.value) }} /></div>
+          <div><label style={LBL}>MODE *</label>
+            <ModeSelect value={form.mode} onChange={e => { setModeLocked(true); setField('mode', e.target.value) }} /></div>
+          {/* Row 2 */}
+          <div><label style={LBL}>RST SENT</label>
+            <Inp value={form.rst_sent} onChange={e => setField('rst_sent', e.target.value)} /></div>
+          <div><label style={LBL}>RST RCVD</label>
+            <Inp value={form.rst_rcvd} onChange={e => setField('rst_rcvd', e.target.value)} /></div>
+          <div><label style={LBL}>SKCC#</label>
+            <Inp value={form.skcc_nr} placeholder="SKCC# (optional)" onChange={e => setField('skcc_nr', e.target.value)} /></div>
+          {/* Row 3 */}
+          <div><label style={LBL}>DATE (UTC)</label>
+            <Inp value={form.date_on} placeholder="2026-06-05" onChange={e => setField('date_on', e.target.value)} /></div>
+          <div><label style={LBL}>TIME (UTC)</label>
+            <Inp value={form.time_on} placeholder="2359" onChange={e => setField('time_on', e.target.value)} /></div>
+          <div><label style={LBL}>BAND (auto)</label>
+            <Inp value={form.band || freqToBand(form.freq) || ''} readOnly /></div>
+        </div>
+
+        {/* Notes + buttons */}
+        <div style={{ display: 'flex', gap: '6px', marginBottom: '8px', flexShrink: 0, alignItems: 'flex-end' }}>
+          <div style={{ flex: 1 }}>
+            <label style={LBL}>NOTES</label>
+            <Inp value={form.notes} placeholder="Optional" onChange={e => setField('notes', e.target.value)} />
+          </div>
+          <button onClick={handleLog} style={{
+            background: '#00ff41', color: '#000', fontFamily: '"Share Tech Mono", monospace',
+            fontSize: '0.72rem', padding: '5px 18px', cursor: 'pointer', border: 'none',
+            fontWeight: 'bold', letterSpacing: '0.1em', flexShrink: 0
+          }}>LOG QSO</button>
+          <button onClick={handleClear} className="btn-green" style={{ fontSize: '0.7rem', flexShrink: 0 }}>CLEAR</button>
+          <button onClick={handleExport} className="btn-amber" style={{ fontSize: '0.7rem', flexShrink: 0 }}>EXPORT ADIF</button>
+          {toast && <span style={{ fontSize: '0.65rem', color: toast.type === 'ok' ? '#00ff41' : '#ff2200', letterSpacing: '0.1em' }}>{toast.msg}</span>}
+        </div>
+
+        {/* Stats */}
+        {stats && (
+          <div style={{ fontSize: '0.58rem', color: '#00551a', padding: '3px 0', borderTop: '1px solid #1a3a1a', borderBottom: '1px solid #1a3a1a', marginBottom: '6px', flexShrink: 0 }}>
+            <span style={{ color: '#00ff41' }}>Total: {stats.total}</span>
+            {' | '}<span style={{ color: '#ffb000' }}>SKCC: {stats.skcc_count}</span>
+            {Object.entries(stats.bands || {}).slice(0, 4).length > 0 && (
+              <>{' | '}Bands: {Object.entries(stats.bands).slice(0, 4).map(([b, c]) => `${b}(${c})`).join(' ')}</>
+            )}
+            {Object.entries(stats.modes || {}).slice(0, 3).length > 0 && (
+              <>{' | '}Modes: {Object.entries(stats.modes).slice(0, 3).map(([m, c]) => `${m}(${c})`).join(' ')}</>
+            )}
+          </div>
+        )}
+
+        {/* Search */}
+        <div style={{ display: 'flex', gap: '6px', marginBottom: '6px', flexShrink: 0 }}>
+          <input value={search} onChange={e => setSearch(e.target.value)}
+            placeholder="Search callsign / notes / SKCC#..."
+            style={{ flex: 1, ...INP }}
+            onFocus={e => { e.target.style.borderColor = '#00ff41' }}
+            onBlur={e => { e.target.style.borderColor = '#1a3a1a' }} />
+          {search && <button onClick={() => setSearch('')} className="btn-green" style={{ fontSize: '0.6rem', padding: '2px 8px' }}>CLR</button>}
+          {searchResults && <span style={{ fontSize: '0.55rem', color: '#00551a', alignSelf: 'center' }}>{searchResults.length} match</span>}
+        </div>
+
+        {/* Table header */}
+        <div style={{ display: 'grid', gridTemplateColumns: COL_WIDTHS, gap: '4px', padding: '2px 4px', borderBottom: '1px solid #1a3a1a', flexShrink: 0 }}>
+          {['TIME', 'CALLSIGN', 'FREQ', 'BAND', 'MODE', 'RST S/R', 'SKCC#', 'NOTES', 'SRC', ''].map((h, i) => (
+            <span key={i} style={{ fontSize: '0.5rem', color: '#00441a', letterSpacing: '0.1em' }}>{h}</span>
+          ))}
+        </div>
+
+        {/* Table body */}
+        <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
+          {displayQsos.length === 0
+            ? <div style={{ textAlign: 'center', color: '#335533', fontSize: '0.72rem', marginTop: '20px', letterSpacing: '0.15em' }}>
+                {search ? 'NO MATCHES' : 'NO QSOS LOGGED'}
+              </div>
+            : displayQsos.map((q, i) => <QSORow key={q.id} qso={q} idx={i} onDelete={handleDelete} />)
+          }
+        </div>
+      </div>
+    </div>
+  )
+}
+
+const LBL = { fontSize: '0.5rem', color: '#00551a', letterSpacing: '0.1em', display: 'block', marginBottom: '2px' }
+
+// ---- Main compact view ----
+
+export default function QSOLog() {
+  const shared = useQSOLog()
+  const { form, setField, setFreqLocked, setModeLocked, qsos, stats, toast, handleLog, handleClear, handleDelete, handleExport } = shared
+  const [expanded, setExpanded] = useState(false)
 
   return (
     <div className="panel" style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-      {/* Header */}
-      <div className="panel-title" style={{ display: 'flex', justifyContent: 'space-between', flexShrink: 0 }}>
-        <span>QSO LOG</span>
-        <span style={{ fontSize: '0.55rem', color: '#00551a' }}>{qsos.length} / 50 shown</span>
+      {/* ---- Compact form — single row ---- */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: '130px 88px 80px 62px 62px 90px 100px 68px 56px 1fr 90px 70px 86px',
+        gap: '4px',
+        padding: '4px 4px 3px',
+        flexShrink: 0,
+        alignItems: 'end'
+      }}>
+        <div>
+          <span style={LBL}>CALLSIGN *</span>
+          <Inp value={form.callsign} placeholder="KJ5NUJ"
+            onChange={e => setField('callsign', e.target.value.toUpperCase())} />
+        </div>
+        <div>
+          <span style={LBL}>FREQ *</span>
+          <Inp value={form.freq} placeholder="14.060"
+            onChange={e => { setFreqLocked(true); setField('freq', e.target.value) }} />
+        </div>
+        <div>
+          <span style={LBL}>MODE *</span>
+          <ModeSelect value={form.mode}
+            onChange={e => { setModeLocked(true); setField('mode', e.target.value) }} />
+        </div>
+        <div>
+          <span style={LBL}>RST S</span>
+          <Inp value={form.rst_sent} onChange={e => setField('rst_sent', e.target.value)} />
+        </div>
+        <div>
+          <span style={LBL}>RST R</span>
+          <Inp value={form.rst_rcvd} onChange={e => setField('rst_rcvd', e.target.value)} />
+        </div>
+        <div>
+          <span style={LBL}>SKCC#</span>
+          <Inp value={form.skcc_nr} placeholder="optional" onChange={e => setField('skcc_nr', e.target.value)} />
+        </div>
+        <div>
+          <span style={LBL}>DATE</span>
+          <Inp value={form.date_on} onChange={e => setField('date_on', e.target.value)} />
+        </div>
+        <div>
+          <span style={LBL}>TIME</span>
+          <Inp value={form.time_on} onChange={e => setField('time_on', e.target.value)} />
+        </div>
+        <div>
+          <span style={LBL}>BAND</span>
+          <Inp value={form.band || freqToBand(form.freq) || ''} readOnly />
+        </div>
+        <div>
+          <span style={LBL}>NOTES</span>
+          <Inp value={form.notes} placeholder="notes" onChange={e => setField('notes', e.target.value)} />
+        </div>
+
+        {/* Buttons */}
+        <button onClick={handleLog} style={{
+          background: '#00ff41', color: '#000', fontFamily: '"Share Tech Mono", monospace',
+          fontSize: '0.72rem', padding: '4px 0', cursor: 'pointer', border: 'none',
+          fontWeight: 'bold', letterSpacing: '0.1em', alignSelf: 'end', height: '26px'
+        }}>LOG QSO</button>
+        <button onClick={handleClear} className="btn-green"
+          style={{ fontSize: '0.65rem', padding: '3px 0', alignSelf: 'end', height: '26px' }}>
+          CLEAR
+        </button>
+        <button onClick={() => setExpanded(true)}
+          style={{
+            background: 'transparent', border: '1px solid #1a3a1a', color: '#00551a',
+            fontFamily: '"Share Tech Mono", monospace', fontSize: '0.65rem',
+            padding: '3px 0', cursor: 'pointer', alignSelf: 'end', height: '26px',
+            letterSpacing: '0.08em'
+          }}
+          onMouseEnter={e => { e.target.style.borderColor = '#00ff41'; e.target.style.color = '#00ff41' }}
+          onMouseLeave={e => { e.target.style.borderColor = '#1a3a1a'; e.target.style.color = '#00551a' }}
+        >
+          EXPAND LOG
+        </button>
       </div>
 
-      {/* ---- Entry Form ---- */}
-      <div style={{ flexShrink: 0, paddingBottom: '5px' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '5px', marginBottom: '4px' }}>
-          {/* Row 1 */}
-          <Input label="CALLSIGN *" value={form.callsign} placeholder="KJ5NUJ"
-            onChange={e => setField('callsign', e.target.value.toUpperCase())} />
-          <Input label="FREQ (MHz) *" value={form.freq} placeholder="14.060"
-            onChange={e => { setFreqLocked(true); setField('freq', e.target.value) }} />
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-            <label style={{ fontSize: '0.5rem', color: '#00551a', letterSpacing: '0.1em' }}>MODE *</label>
-            <select
-              value={form.mode}
-              onChange={e => { setModeLocked(true); setField('mode', e.target.value) }}
-              style={{
-                background: '#081208', border: '1px solid #1a3a1a', color: '#00ff41',
-                fontFamily: '"Share Tech Mono", monospace', fontSize: '0.72rem',
-                padding: '3px 6px', outline: 'none', width: '100%'
-              }}
-              onFocus={e => { e.target.style.borderColor = '#00ff41' }}
-              onBlur={e => { e.target.style.borderColor = '#1a3a1a' }}
-            >
-              {MODES.map(m => <option key={m} value={m}>{m}</option>)}
-            </select>
-          </div>
-
-          {/* Row 2 */}
-          <Input label="RST SENT" value={form.rst_sent}
-            onChange={e => setField('rst_sent', e.target.value)} />
-          <Input label="RST RCVD" value={form.rst_rcvd}
-            onChange={e => setField('rst_rcvd', e.target.value)} />
-          <Input label="SKCC#" value={form.skcc_nr} placeholder="SKCC# (optional)"
-            onChange={e => setField('skcc_nr', e.target.value)} />
-
-          {/* Row 3 */}
-          <Input label="DATE (UTC)" value={form.date_on} placeholder="2026-06-05"
-            onChange={e => setField('date_on', e.target.value)} />
-          <Input label="TIME (UTC)" value={form.time_on} placeholder="2359"
-            onChange={e => setField('time_on', e.target.value)} />
-          <Input label="BAND (auto)" value={form.band || freqToBand(form.freq) || ''} readOnly />
+      {/* Toast + stats on same line */}
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: '1px 4px', flexShrink: 0,
+        borderTop: '1px solid #1a3a1a', borderBottom: '1px solid #1a3a1a'
+      }}>
+        <div style={{ fontSize: '0.57rem', color: '#00551a' }}>
+          {stats && (
+            <>
+              <span style={{ color: '#00ff41' }}>Total: {stats.total}</span>
+              {' | '}<span style={{ color: '#ffb000' }}>SKCC: {stats.skcc_count}</span>
+              {Object.entries(stats.bands || {}).slice(0, 3).length > 0 && (
+                <> | Bands: {Object.entries(stats.bands).slice(0, 3).map(([b, c]) => `${b}(${c})`).join(' ')}</>
+              )}
+              {Object.entries(stats.modes || {}).slice(0, 2).length > 0 && (
+                <> | Modes: {Object.entries(stats.modes).slice(0, 2).map(([m, c]) => `${m}(${c})`).join(' ')}</>
+              )}
+            </>
+          )}
         </div>
-
-        {/* Row 4 — Notes */}
-        <div style={{ marginBottom: '4px' }}>
-          <Input label="NOTES" value={form.notes} placeholder="Optional notes"
-            onChange={e => setField('notes', e.target.value)} />
-        </div>
-
-        {/* Button row */}
-        <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-          <button onClick={handleLog} style={{
-            ...btnBase, background: '#00ff41', color: '#000', fontWeight: 'bold',
-            padding: '5px 18px', letterSpacing: '0.15em'
-          }}>
-            LOG QSO
-          </button>
-          <button onClick={handleClear} className="btn-green" style={{ fontSize: '0.68rem' }}>
-            CLEAR
-          </button>
-          <button onClick={handleExport} className="btn-amber" style={{ fontSize: '0.68rem' }}>
-            EXPORT ADIF
-          </button>
-
-          {/* Toast */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           {toast && (
-            <span style={{
-              fontSize: '0.65rem',
-              color: toast.type === 'ok' ? '#00ff41' : '#ff2200',
-              letterSpacing: '0.1em',
-              marginLeft: '8px',
-              animation: 'fadeIn 0.1s'
-            }}>
+            <span style={{ fontSize: '0.65rem', color: toast.type === 'ok' ? '#00ff41' : '#ff2200', letterSpacing: '0.1em' }}>
               {toast.msg}
             </span>
           )}
+          <button onClick={handleExport} className="btn-amber" style={{ fontSize: '0.6rem', padding: '1px 8px' }}>
+            EXPORT
+          </button>
         </div>
       </div>
 
-      {/* Stats bar */}
-      <StatsBar stats={stats} />
-
-      {/* Search bar */}
-      <div style={{ display: 'flex', gap: '5px', alignItems: 'center', padding: '4px 0', flexShrink: 0 }}>
-        <input
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          placeholder="Search callsign / notes / SKCC#..."
-          style={{
-            flex: 1, background: '#081208', border: '1px solid #1a3a1a', color: '#00ff41',
-            fontFamily: '"Share Tech Mono", monospace', fontSize: '0.68rem',
-            padding: '3px 6px', outline: 'none'
-          }}
-          onFocus={e => { e.target.style.borderColor = '#00ff41' }}
-          onBlur={e => { e.target.style.borderColor = '#1a3a1a' }}
-        />
-        {search && (
-          <button onClick={() => setSearch('')} className="btn-green"
-            style={{ fontSize: '0.6rem', padding: '2px 8px' }}>
-            CLEAR
-          </button>
-        )}
-        {searchResults && (
-          <span style={{ fontSize: '0.55rem', color: '#00551a' }}>{searchResults.length} match</span>
-        )}
-      </div>
-
       {/* Table header */}
-      <div style={{
-        display: 'grid', gridTemplateColumns: COL_WIDTHS, gap: '4px',
-        padding: '2px 4px', borderBottom: '1px solid #1a3a1a', flexShrink: 0
-      }}>
-        {['TIME(UTC)', 'CALLSIGN', 'FREQ', 'BAND', 'MODE', 'RST S/R', 'SKCC#', 'NOTES', 'SRC', ''].map((h, i) => (
+      <div style={{ display: 'grid', gridTemplateColumns: COL_WIDTHS, gap: '4px', padding: '2px 4px', borderBottom: '1px solid #1a3a1a', flexShrink: 0 }}>
+        {['TIME', 'CALLSIGN', 'FREQ', 'BAND', 'MODE', 'RST S/R', 'SKCC#', 'NOTES', 'SRC', ''].map((h, i) => (
           <span key={i} style={{ fontSize: '0.5rem', color: '#00441a', letterSpacing: '0.1em' }}>{h}</span>
         ))}
       </div>
 
-      {/* Table body */}
-      <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
-        {displayQsos.length === 0 ? (
-          <div style={{
-            textAlign: 'center', color: '#335533', fontSize: '0.72rem',
-            letterSpacing: '0.15em', marginTop: '16px'
-          }}>
-            {search ? 'NO MATCHES' : 'NO QSOS LOGGED'}
-          </div>
-        ) : (
-          displayQsos.map((q, i) => (
-            <TableRow key={q.id} qso={q} idx={i} onDelete={handleDelete} />
-          ))
-        )}
+      {/* Last 3 QSOs */}
+      <div style={{ flex: 1, overflow: 'hidden', minHeight: 0 }}>
+        {qsos.length === 0
+          ? <div style={{ textAlign: 'center', color: '#335533', fontSize: '0.65rem', letterSpacing: '0.15em', padding: '6px' }}>
+              NO QSOS LOGGED
+            </div>
+          : qsos.slice(0, 3).map((q, i) => (
+              <QSORow key={q.id} qso={q} idx={i} onDelete={handleDelete} />
+            ))
+        }
       </div>
+
+      {/* Expand overlay */}
+      {expanded && <ExpandedLog onClose={() => setExpanded(false)} shared={shared} />}
     </div>
   )
 }

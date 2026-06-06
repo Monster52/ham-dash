@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { useIPCEvent } from '../hooks/useIPC'
 
 function UTCClock() {
   const [time, setTime] = useState('')
@@ -16,6 +17,32 @@ function UTCClock() {
   return (
     <span style={{ color: '#00ff41', fontSize: '1.1rem', letterSpacing: '0.1em' }}>
       {time}
+    </span>
+  )
+}
+
+function GpsDisplay() {
+  const gps = useIPCEvent(window.api?.gps?.onStatus, null)
+
+  if (!gps?.connected || !gps?.locked || gps?.lat == null) {
+    return (
+      <span style={{ color: '#00aa2b', fontSize: '0.8rem', letterSpacing: '0.1em' }}>
+        EM50JI
+      </span>
+    )
+  }
+
+  const latStr = `${Math.abs(gps.lat).toFixed(2)}°${gps.lat >= 0 ? 'N' : 'S'}`
+  const lonStr = `${Math.abs(gps.lon).toFixed(2)}°${gps.lon >= 0 ? 'E' : 'W'}`
+
+  return (
+    <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+      <span style={{ color: '#00aa2b', fontSize: '0.8rem', letterSpacing: '0.1em' }}>
+        {gps.grid || 'EM50JI'}
+      </span>
+      <span style={{ color: '#00551a', fontSize: '0.7rem', letterSpacing: '0.05em' }}>
+        {latStr} {lonStr}
+      </span>
     </span>
   )
 }
@@ -55,9 +82,7 @@ export default function Header({ onSettings }) {
         >
           KJ5NUJ
         </span>
-        <span style={{ color: '#00aa2b', fontSize: '0.8rem', letterSpacing: '0.1em' }}>
-          EM50JI
-        </span>
+        <GpsDisplay />
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
@@ -75,14 +100,8 @@ export default function Header({ onSettings }) {
             letterSpacing: '0.1em',
             transition: 'all 0.1s'
           }}
-          onMouseEnter={(e) => {
-            e.target.style.borderColor = '#00ff41'
-            e.target.style.color = '#00ff41'
-          }}
-          onMouseLeave={(e) => {
-            e.target.style.borderColor = '#1a3a1a'
-            e.target.style.color = '#00aa2b'
-          }}
+          onMouseEnter={(e) => { e.target.style.borderColor = '#00ff41'; e.target.style.color = '#00ff41' }}
+          onMouseLeave={(e) => { e.target.style.borderColor = '#1a3a1a'; e.target.style.color = '#00aa2b' }}
         >
           SETTINGS
         </button>

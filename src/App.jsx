@@ -2,7 +2,6 @@ import React, { useState } from 'react'
 import Header from './components/Header'
 import RigPanel from './components/RigPanel'
 import KeyerPanel from './components/KeyerPanel'
-import GridPanel from './components/GridPanel'
 import BandConditions from './components/BandConditions'
 import QSOLog from './components/QSOLog'
 import RBNPanel from './components/RBNPanel'
@@ -18,7 +17,7 @@ export default function App() {
         height: '100vh',
         background: '#0a0a0a',
         display: 'grid',
-        gridTemplateRows: 'auto 1fr 1fr',
+        gridTemplateRows: 'auto 1fr 220px',
         gridTemplateColumns: '1fr',
         overflow: 'hidden',
         fontFamily: '"Share Tech Mono", monospace'
@@ -26,38 +25,39 @@ export default function App() {
     >
       <Header onSettings={() => setShowSettings(true)} />
 
-      {/* Top row: 3 columns */}
+      {/* Top section — 3 columns, fills all space above QSO log */}
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: '300px 460px 1fr',
+          gridTemplateColumns: '280px 320px 1fr',
           gap: '6px',
           padding: '6px 6px 3px 6px',
           overflow: 'hidden',
           minHeight: 0
         }}
       >
-        {/* Col 1: Rig Panel */}
-        <RigPanel />
+        {/* Col 1: Rig Control */}
+        <div style={{ overflow: 'hidden', minHeight: 0 }}>
+          <RigPanel />
+        </div>
 
-        {/* Col 2: Keyer + GPS + BandConditions stacked */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', minHeight: 0, overflow: 'hidden' }}>
-          <div style={{ flex: '1.4', minHeight: 0, overflow: 'hidden' }}>
+        {/* Col 2: Keyer (grows) + Band Conditions (fixed, never shrinks) */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', overflow: 'hidden', minHeight: 0 }}>
+          <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
             <KeyerPanel />
           </div>
-          <div style={{ flex: '1', minHeight: 0, overflow: 'hidden' }}>
-            <GridPanel />
-          </div>
-          <div style={{ flex: '0 0 auto' }}>
+          <div style={{ flexShrink: 0 }}>
             <BandConditions />
           </div>
         </div>
 
         {/* Col 3: RBN Panel */}
-        <RBNPanel />
+        <div style={{ overflow: 'hidden', minHeight: 0 }}>
+          <RBNPanel />
+        </div>
       </div>
 
-      {/* Bottom row: QSO Log full width */}
+      {/* Bottom: QSO Log fixed 220px */}
       <div style={{ padding: '3px 6px 6px 6px', overflow: 'hidden', minHeight: 0 }}>
         <QSOLog />
       </div>

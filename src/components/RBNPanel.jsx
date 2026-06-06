@@ -55,10 +55,11 @@ function RBNMap({ spots }) {
   )
   const graticule = useMemo(() => geoGraticule()(), [])
 
+  // Centered at lon=-30 (mid-Atlantic), lat=20 — shows NA, Europe, and Africa simultaneously
   const projection = useMemo(() =>
     geoEquirectangular()
-      .rotate([90, -35])
-      .scale(130)
+      .rotate([30, -20])
+      .scale(115)
       .translate([MAP_W / 2, MAP_H / 2]),
     []
   )
