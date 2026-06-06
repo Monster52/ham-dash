@@ -86,7 +86,7 @@ export async function fetchSpots() {
   try {
     console.log('[rbn] fetching spots for KJ5NUJ...')
     const { status, body } = await httpGet(
-      'https://www.hamqth.com/rbn_data.php?data=1&band=160,80,40,30,20,17,15,12,10&mode=CW,RTTY&age=30&order=3'
+      'https://www.hamqth.com/rbn_data.php?data=1&band=160,80,40,30,20,17,15,12,10&mode=CW,RTTY&age=720&order=3'
     )
 
     if (status !== 200) {

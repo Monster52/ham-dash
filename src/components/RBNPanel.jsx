@@ -178,7 +178,7 @@ function SpotRow({ spot, idx }) {
       fontSize: '0.72rem',
       fontFamily: '"Share Tech Mono", monospace',
       background: idx % 2 === 0 ? 'transparent' : 'rgba(0,255,65,0.02)',
-      opacity: actualAge > 20 ? 0.45 : 1,
+      opacity: actualAge > 120 ? 0.45 : 1,
       borderBottom: '1px solid #0d1a0d'
     }}>
       <span style={{ color: '#00551a' }}>
@@ -269,18 +269,23 @@ export default function RBNPanel() {
     setRefreshing(false)
   }
 
-  const recentSpots = spots.filter(s => s.age_min <= 30)
+  const recentSpots = spots.filter(s => s.age_min <= 720)
   const lastSpot    = spots[0]
 
   return (
-    <div className="panel" style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-      {/* Header */}
-      <div className="panel-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0, paddingBottom: 0, marginBottom: 0 }}>
+    // Override .panel's padding:10px entirely — we control spacing manually
+    // so the map SVG starts flush against the header with zero gap.
+    <div className="panel" style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden', padding: 0 }}>
+      {/* Header — manual padding, no bottom margin */}
+      <div className="panel-title" style={{
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        flexShrink: 0, padding: '6px 8px 4px 8px', marginBottom: 0, borderBottom: 'none'
+      }}>
         <span>RBN — KJ5NUJ</span>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           {recentSpots.length > 0 ? (
             <span style={{ fontSize: '0.58rem', color: '#00551a' }}>
-              {recentSpots.length} skimmer{recentSpots.length !== 1 ? 's' : ''} (30m)
+              {recentSpots.length} skimmer{recentSpots.length !== 1 ? 's' : ''} (12h)
               {lastSpot && (
                 <span style={{ color: '#ffb000', marginLeft: '6px' }}>
                   last: {lastSpot.freq_mhz?.toFixed(3)} {lastSpot.mode}
@@ -301,14 +306,14 @@ export default function RBNPanel() {
         </div>
       </div>
 
-      {/* Map — flush below header, grows to fill available vertical space */}
-      <div style={{ flex: '1 1 auto', minHeight: '350px', borderBottom: '1px solid #1a3a1a', overflow: 'hidden', margin: 0, padding: 0 }}>
+      {/* Map — starts immediately below header, grows to fill space */}
+      <div style={{ flex: '1 1 auto', borderBottom: '1px solid #1a3a1a', overflow: 'hidden', margin: 0, padding: 0 }}>
         <RBNMap spots={spots} />
       </div>
 
       {/* Band color legend */}
       <div style={{
-        display: 'flex', gap: '6px', padding: '2px 4px',
+        display: 'flex', gap: '6px', padding: '2px 8px',
         fontSize: '0.52rem', flexShrink: 0, flexWrap: 'wrap',
         borderBottom: '1px solid #1a3a1a'
       }}>
@@ -327,7 +332,7 @@ export default function RBNPanel() {
       {spots.length === 0 && (
         <div style={{
           textAlign: 'center', color: '#335533', fontSize: '0.72rem',
-          letterSpacing: '0.1em', padding: '12px', flexShrink: 0
+          letterSpacing: '0.1em', padding: '8px', flexShrink: 0
         }}>
           NO SPOTS — RBN only logs KJ5NUJ when actively TX&apos;ing CW/RTTY
         </div>
@@ -338,7 +343,7 @@ export default function RBNPanel() {
         <div style={{
           display: 'grid',
           gridTemplateColumns: '52px 90px 52px 70px 44px 44px 44px 1fr',
-          gap: '4px', padding: '2px 4px', flexShrink: 0,
+          gap: '4px', padding: '2px 8px', flexShrink: 0,
           borderBottom: '1px solid #1a3a1a'
         }}>
           {['TIME', 'SPOTTER', 'GRID', 'FREQ', 'BAND', 'SNR', 'AGE', 'DIST'].map(h => (
@@ -347,8 +352,8 @@ export default function RBNPanel() {
         </div>
       )}
 
-      {/* Spot list — auto height up to 200px, flush to panel bottom */}
-      <div style={{ flex: '1 1 auto', maxHeight: '200px', overflowY: 'auto', paddingBottom: '4px' }}>
+      {/* Spot list — newest to oldest, max 10, up to 12h window */}
+      <div style={{ overflowY: 'auto', flexShrink: 0, maxHeight: '280px', paddingBottom: '4px' }}>
         {spots.slice(0, 10).map((s, i) => (
           <SpotRow key={s.id} spot={s} idx={i} tick={tick} />
         ))}
