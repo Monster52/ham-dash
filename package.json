@@ -24,10 +24,13 @@
     "adm-zip": "^0.5.16",
     "better-sqlite3": "^12.10.0",
     "chokidar": "^3.6.0",
+    "d3-geo": "^3.1.1",
     "electron-store": "^8.2.0",
     "fast-xml-parser": "^4.4.1",
     "recharts": "^2.12.7",
-    "serialport": "^12.0.0"
+    "serialport": "^12.0.0",
+    "topojson-client": "^3.1.0",
+    "world-atlas": "^2.0.2"
   },
   "devDependencies": {
     "@types/react": "^18.3.3",

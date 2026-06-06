@@ -5,6 +5,7 @@ import KeyerPanel from './components/KeyerPanel'
 import GridPanel from './components/GridPanel'
 import BandConditions from './components/BandConditions'
 import QSOLog from './components/QSOLog'
+import RBNPanel from './components/RBNPanel'
 import SettingsPanel from './components/SettingsPanel'
 
 export default function App() {
@@ -17,7 +18,7 @@ export default function App() {
         height: '100vh',
         background: '#0a0a0a',
         display: 'grid',
-        gridTemplateRows: 'auto 1fr',
+        gridTemplateRows: 'auto 1fr 1fr',
         gridTemplateColumns: '1fr',
         overflow: 'hidden',
         fontFamily: '"Share Tech Mono", monospace'
@@ -25,33 +26,40 @@ export default function App() {
     >
       <Header onSettings={() => setShowSettings(true)} />
 
+      {/* Top row: 3 columns */}
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: '380px 220px 220px 1fr',
-          gridTemplateRows: '1fr 1fr',
+          gridTemplateColumns: '300px 460px 1fr',
           gap: '6px',
-          padding: '6px',
-          height: '100%',
-          overflow: 'hidden'
+          padding: '6px 6px 3px 6px',
+          overflow: 'hidden',
+          minHeight: 0
         }}
       >
-        {/* Row 1: Rig spans 2 rows, Keyer, Grid, Band/QSO */}
-        <div style={{ gridRow: '1 / 3', gridColumn: '1' }}>
-          <RigPanel />
+        {/* Col 1: Rig Panel */}
+        <RigPanel />
+
+        {/* Col 2: Keyer + GPS + BandConditions stacked */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', minHeight: 0, overflow: 'hidden' }}>
+          <div style={{ flex: '1.4', minHeight: 0, overflow: 'hidden' }}>
+            <KeyerPanel />
+          </div>
+          <div style={{ flex: '1', minHeight: 0, overflow: 'hidden' }}>
+            <GridPanel />
+          </div>
+          <div style={{ flex: '0 0 auto' }}>
+            <BandConditions />
+          </div>
         </div>
-        <div style={{ gridRow: '1', gridColumn: '2' }}>
-          <KeyerPanel />
-        </div>
-        <div style={{ gridRow: '1', gridColumn: '3' }}>
-          <GridPanel />
-        </div>
-        <div style={{ gridRow: '1', gridColumn: '4' }}>
-          <BandConditions />
-        </div>
-        <div style={{ gridRow: '2', gridColumn: '2 / 5' }}>
-          <QSOLog />
-        </div>
+
+        {/* Col 3: RBN Panel */}
+        <RBNPanel />
+      </div>
+
+      {/* Bottom row: QSO Log full width */}
+      <div style={{ padding: '3px 6px 6px 6px', overflow: 'hidden', minHeight: 0 }}>
+        <QSOLog />
       </div>
 
       {showSettings && (

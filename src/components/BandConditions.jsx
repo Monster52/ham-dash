@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react'
 import { useIPCEvent } from '../hooks/useIPC'
 
-const BANDS = ['80m', '40m', '20m', '17m', '15m', '10m']
+const BANDS = ['80m', '40m', '20m', '17m', '15m', '12m', '10m']
 
-// Thresholds: [openAt, marginalAt] in MHz
 const BAND_MUF_THRESHOLDS = {
   '10m': [28, 23],
   '15m': [21, 17],
@@ -14,52 +13,47 @@ function mufStatus(muf, band) {
   const t = BAND_MUF_THRESHOLDS[band]
   if (!t || muf == null) return null
   if (muf >= t[0]) return 'OPEN'
-  if (muf >= t[1]) return 'MARGINAL'
-  return 'CLOSED'
+  if (muf >= t[1]) return 'MARG'
+  return 'CLSD'
 }
 
-const STATUS_COLOR = { OPEN: '#00ff41', MARGINAL: '#ffb000', CLOSED: '#ff2200' }
+const STATUS_COLOR = { OPEN: '#00ff41', MARG: '#ffb000', CLSD: '#ff2200' }
 
-const CONDITION_COLORS = {
-  'Good': '#00ff41',
-  'Fair': '#ffb000',
-  'Poor': '#ff2200',
-  'Unknown': '#335533'
+function kColor(k) {
+  const n = parseFloat(k)
+  if (isNaN(n)) return '#00551a'
+  if (n >= 5) return '#ff2200'
+  if (n >= 3) return '#ffb000'
+  return '#00ff41'
 }
 
-function ConditionBadge({ value }) {
-  const color = CONDITION_COLORS[value] || CONDITION_COLORS.Unknown
-  return (
-    <span
-      style={{
-        fontSize: '0.6rem',
-        color,
-        padding: '1px 5px',
-        border: `1px solid ${color}44`,
-        background: `${color}11`,
-        letterSpacing: '0.05em'
-      }}
-    >
-      {value || '???'}
-    </span>
-  )
+function isDaytime() {
+  const h = new Date().getUTCHours()
+  return h >= 6 && h < 20
 }
 
-function IndexBadge({ label, value, good, warn }) {
-  const num = parseFloat(value)
-  let color = '#00ff41'
-  if (!isNaN(num)) {
-    if (num >= warn) color = '#ff2200'
-    else if (num >= good) color = '#ffb000'
-  }
-  return (
-    <div style={{ textAlign: 'center' }}>
-      <div style={{ fontSize: '0.55rem', color: '#00551a', letterSpacing: '0.1em' }}>{label}</div>
-      <div style={{ fontSize: '1rem', color, textShadow: `0 0 6px ${color}66` }}>
-        {value ?? '---'}
-      </div>
-    </div>
-  )
+function bandCondColor(condition) {
+  if (!condition) return '#335533'
+  const c = condition.toLowerCase()
+  if (c === 'good') return '#00ff41'
+  if (c === 'fair') return '#ffb000'
+  if (c === 'poor') return '#ff2200'
+  return '#335533'
+}
+
+function bandCondLetter(condition) {
+  if (!condition) return '?'
+  const c = condition.toLowerCase()
+  if (c === 'good') return 'G'
+  if (c === 'fair') return 'F'
+  if (c === 'poor') return 'P'
+  return '?'
+}
+
+const S = {
+  label: { color: '#00551a', marginRight: '2px' },
+  val:   { color: '#00ff41' },
+  row:   { display: 'flex', alignItems: 'center', gap: '8px', padding: '2px 4px', flexWrap: 'wrap' }
 }
 
 export default function BandConditions() {
@@ -67,15 +61,15 @@ export default function BandConditions() {
   const [pulled, setPulled] = useState(null)
   const [refreshing, setRefreshing] = useState(false)
 
-  // Pull cached data on mount — resolves after React is ready, no race condition
   useEffect(() => {
     window.api?.propagation?.get().then(setPulled)
   }, [])
 
-  // Pushed updates (hourly timer) override the pulled value
   const raw = pushed ?? pulled
   const hasError = raw?.error != null
   const propData = hasError ? null : raw
+  const muf = propData?.muf
+  const daytime = isDaytime()
 
   const handleRefresh = async () => {
     setRefreshing(true)
@@ -83,190 +77,119 @@ export default function BandConditions() {
     setRefreshing(false)
   }
 
-  const formatUpdated = (iso) => {
-    if (!iso) return 'Never'
-    const d = new Date(iso)
-    return d.toUTCString().replace(/GMT$/, 'UTC').split(' ').slice(1).join(' ')
-  }
-
   return (
-    <div className="panel" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <div className="panel-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <span>BAND CONDITIONS</span>
-        <button
-          className="btn-green"
-          style={{ fontSize: '0.55rem', padding: '2px 6px', opacity: refreshing ? 0.5 : 1 }}
-          onClick={handleRefresh}
-          disabled={refreshing}
-        >
-          {refreshing ? 'FETCHING...' : 'REFRESH'}
-        </button>
-      </div>
-
-      {/* Solar Indices Row */}
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-around',
-          padding: '6px 0',
-          borderBottom: '1px solid #1a3a1a',
-          marginBottom: '8px'
-        }}
-      >
-        <IndexBadge label="SFI" value={propData?.sfi} good={150} warn={250} />
-        <IndexBadge label="A" value={propData?.aindex} good={15} warn={30} />
-        <IndexBadge label="K" value={propData?.kindex} good={3} warn={5} />
-        <IndexBadge label="X-RAY" value={propData?.xray} good={99} warn={99} />
-        <IndexBadge label="SPOTS" value={propData?.sunspots} good={50} warn={200} />
-      </div>
-
-      {/* MUF / foF2 row */}
-      {(() => {
-        const m = propData?.muf
-        const mufVal = m?.muf
-        const foF2Val = m?.foF2
-        return (
-          <div
+    <div
+      style={{
+        background: '#0f1a0f',
+        border: '1px solid #1a3a1a',
+        borderRadius: '4px',
+        boxShadow: '0 0 8px rgba(0,255,65,0.15)',
+        padding: '4px 6px',
+        fontFamily: '"Share Tech Mono", monospace',
+        fontSize: '0.65rem'
+      }}
+    >
+      {/* Line 1: header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '3px' }}>
+        <span style={{ fontSize: '0.58rem', color: '#00aa2b', letterSpacing: '0.12em' }}>
+          BAND CONDITIONS
+        </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          {hasError && <span style={{ fontSize: '0.55rem', color: '#ff2200' }}>UNAVAIL</span>}
+          <button
+            onClick={handleRefresh}
+            disabled={refreshing}
             style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '10px',
-              padding: '4px 2px',
-              borderBottom: '1px solid #1a3a1a',
-              marginBottom: '6px',
-              flexWrap: 'wrap',
-              fontSize: '0.68rem',
-              fontFamily: '"Share Tech Mono", monospace'
+              background: 'transparent', border: '1px solid #1a3a1a', color: '#00551a',
+              fontFamily: '"Share Tech Mono", monospace', fontSize: '0.55rem',
+              padding: '1px 5px', cursor: 'pointer', opacity: refreshing ? 0.5 : 1
             }}
           >
-            {/* MUF value */}
-            <span>
-              <span style={{ color: '#00551a' }}>MUF: </span>
-              <span style={{ color: '#00ff41' }}>
-                {mufVal != null ? `${mufVal} MHz` : '-- MHz'}
-              </span>
-              {m && (
-                <span
-                  title="Estimated from SFI + K-index (URSI formula, ±2–3 MHz)"
-                  style={{
-                    color: '#ffb000',
-                    fontSize: '0.55rem',
-                    marginLeft: '4px',
-                    cursor: 'help',
-                    letterSpacing: '0.05em'
-                  }}
-                >
-                  [est.]
-                </span>
-              )}
-            </span>
-
-            {/* foF2 value */}
-            <span>
-              <span style={{ color: '#00551a' }}>foF2: </span>
-              <span style={{ color: '#00aa2b' }}>
-                {foF2Val != null ? `${foF2Val} MHz` : '--'}
-              </span>
-            </span>
-
-            {/* Band open/marginal/closed indicators */}
-            {['10m', '15m', '17m'].map(band => {
-              const status = mufVal != null ? mufStatus(mufVal, band) : null
-              const color = status ? STATUS_COLOR[status] : '#335533'
-              return (
-                <span key={band}>
-                  <span style={{ color: '#00551a' }}>{band}: </span>
-                  <span style={{ color, textShadow: status === 'OPEN' ? `0 0 5px ${color}88` : 'none' }}>
-                    {status ?? '--'}
-                  </span>
-                </span>
-              )
-            })}
-          </div>
-        )
-      })()}
-
-      {/* Error state */}
-      {hasError && (
-        <div
-          style={{
-            textAlign: 'center',
-            color: '#ff2200',
-            fontSize: '0.72rem',
-            letterSpacing: '0.15em',
-            border: '1px solid #440000',
-            padding: '6px 10px',
-            marginBottom: '6px',
-            background: '#1a0000'
-          }}
-        >
-          DATA UNAVAILABLE
-          {raw.error && (
-            <div style={{ fontSize: '0.55rem', marginTop: '3px', color: '#aa2200' }}>
-              {raw.error}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Band Grid */}
-      <div style={{ flex: 1 }}>
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: '1fr 1fr',
-            gap: '4px'
-          }}
-        >
-          {BANDS.map(band => {
-            const day = propData?.bands?.[band]?.day
-            const night = propData?.bands?.[band]?.night
-            return (
-              <div
-                key={band}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  background: '#0a140a',
-                  border: '1px solid #1a2a1a',
-                  padding: '4px 6px',
-                  gap: '4px'
-                }}
-              >
-                <span
-                  style={{
-                    fontSize: '0.75rem',
-                    color: '#00aa2b',
-                    letterSpacing: '0.1em',
-                    minWidth: '28px'
-                  }}
-                >
-                  {band}
-                </span>
-                <div style={{ display: 'flex', gap: '3px', alignItems: 'center' }}>
-                  <span style={{ fontSize: '0.5rem', color: '#ffb00088' }}>☀</span>
-                  <ConditionBadge value={day} />
-                  <span style={{ fontSize: '0.5rem', color: '#5566aa88' }}>☽</span>
-                  <ConditionBadge value={night} />
-                </div>
-              </div>
-            )
-          })}
+            {refreshing ? '…' : 'REFRESH'}
+          </button>
         </div>
       </div>
 
-      {/* Last Updated */}
-      <div
-        style={{
-          fontSize: '0.5rem',
-          color: '#00441a',
-          borderTop: '1px solid #1a3a1a',
-          paddingTop: '4px',
-          marginTop: '6px'
-        }}
-      >
-        UPDATED: {formatUpdated(propData?.updated)}
+      {/* Line 2: solar indices */}
+      <div style={S.row}>
+        {[
+          ['SFI', propData?.sfi, null],
+          ['A',   propData?.aindex, null],
+          ['K',   propData?.kindex, kColor(propData?.kindex)],
+          ['X',   propData?.xray, null],
+          ['SN',  propData?.sunspots, null],
+        ].map(([label, val, color]) => (
+          <span key={label}>
+            <span style={S.label}>{label}:</span>
+            <span style={{ color: color || (val != null ? '#00ff41' : '#335533') }}>
+              {val ?? '---'}
+            </span>
+          </span>
+        ))}
+      </div>
+
+      {/* Line 3: MUF + foF2 + band open indicators */}
+      <div style={{ ...S.row, borderTop: '1px solid #111f11', marginTop: '2px', paddingTop: '3px' }}>
+        <span>
+          <span style={S.label}>MUF:</span>
+          <span style={{ color: muf ? '#00ff41' : '#335533' }}>
+            {muf ? `${muf.muf}MHz` : '--'}
+          </span>
+          {muf && (
+            <span
+              title="Estimated from SFI + K-index (URSI formula, ±2–3 MHz)"
+              style={{ color: '#ffb000', fontSize: '0.52rem', marginLeft: '2px', cursor: 'help' }}
+            >
+              [est.]
+            </span>
+          )}
+        </span>
+        <span>
+          <span style={S.label}>foF2:</span>
+          <span style={{ color: muf ? '#00aa2b' : '#335533' }}>
+            {muf ? `${muf.foF2}MHz` : '--'}
+          </span>
+        </span>
+        {['10m', '15m', '17m'].map(band => {
+          const status = muf?.muf != null ? mufStatus(muf.muf, band) : null
+          const color = status ? STATUS_COLOR[status] : '#335533'
+          return (
+            <span key={band} style={{ color: '#00551a' }}>
+              {band}:<span style={{ color }}>{status ?? '--'}</span>
+            </span>
+          )
+        })}
+      </div>
+
+      {/* Line 4: band grid badges */}
+      <div style={{ display: 'flex', gap: '3px', marginTop: '3px', paddingTop: '3px', borderTop: '1px solid #111f11', flexWrap: 'nowrap' }}>
+        {BANDS.map(band => {
+          const cond = daytime
+            ? propData?.bands?.[band]?.day
+            : propData?.bands?.[band]?.night
+          const fallback = propData?.bands?.[band]?.day ?? propData?.bands?.[band]?.night
+          const condition = cond ?? fallback
+          const color = bandCondColor(condition)
+          const letter = bandCondLetter(condition)
+          return (
+            <span
+              key={band}
+              title={`${band}: ${condition || 'unknown'} (${daytime ? 'day' : 'night'})`}
+              style={{
+                display: 'inline-flex', gap: '2px', alignItems: 'center',
+                padding: '1px 3px',
+                background: `${color}11`,
+                border: `1px solid ${color}44`,
+                fontSize: '0.58rem',
+                cursor: 'default',
+                whiteSpace: 'nowrap'
+              }}
+            >
+              <span style={{ color: '#00551a' }}>{band}</span>
+              <span style={{ color, fontWeight: 'bold' }}>{letter}</span>
+            </span>
+          )
+        })}
       </div>
     </div>
   )

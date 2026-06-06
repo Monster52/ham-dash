@@ -46,6 +46,17 @@ const api = {
     refresh: () => ipcRenderer.invoke('propagation:refresh')
   },
 
+  // RBN
+  rbn: {
+    onSpots: (cb) => {
+      const handler = (_, data) => cb(data)
+      ipcRenderer.on('rbn:spots', handler)
+      return () => ipcRenderer.removeListener('rbn:spots', handler)
+    },
+    get:     () => ipcRenderer.invoke('rbn:get'),
+    refresh: () => ipcRenderer.invoke('rbn:refresh')
+  },
+
   // QSO Log
   qso: {
     onLog: (cb) => {
