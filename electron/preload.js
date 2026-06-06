@@ -89,6 +89,11 @@ const api = {
     stats:  ()        => ipcRenderer.invoke('qso:stats')
   },
 
+  // Callsign lookup
+  callsign: {
+    lookup: (call) => ipcRenderer.invoke('callsign:lookup', call)
+  },
+
   // Settings
   settings: {
     get: () => ipcRenderer.invoke('settings:get'),

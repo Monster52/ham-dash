@@ -11,6 +11,7 @@ import { openDatabase, closeDatabase, insertQso, listQsos, searchQsos, deleteQso
 import { exportAdif } from './adif-export.js'
 import { initRBN, getRBNSpots } from './rbn.js'
 import { initPOTA } from './pota.js'
+import { initCallsignLookup } from './callsign.js'
 
 const store = new Store({
   defaults: {
@@ -111,6 +112,7 @@ function initHardware() {
 
   initRBN(mainWindow)
   initPOTA(mainWindow)
+  initCallsignLookup()
 
   startPropagationTimer((data) => {
     lastPropagationData = data

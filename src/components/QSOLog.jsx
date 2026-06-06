@@ -40,7 +40,7 @@ const INP = {
 const INP_FOCUS = { borderColor: '#00ff41' }
 const INP_RO = { ...INP, background: '#0a120a', border: '1px solid #1a2a1a', color: '#00551a' }
 
-function Inp({ value, onChange, placeholder, readOnly, type = 'text', style = {} }) {
+function Inp({ value, onChange, onBlur, placeholder, readOnly, type = 'text', style = {} }) {
   return (
     <input
       type={type}
@@ -50,8 +50,37 @@ function Inp({ value, onChange, placeholder, readOnly, type = 'text', style = {}
       placeholder={placeholder}
       style={{ ...(readOnly ? INP_RO : INP), ...style }}
       onFocus={e => { if (!readOnly) e.target.style.borderColor = '#00ff41' }}
-      onBlur={e => { if (!readOnly) e.target.style.borderColor = '#1a3a1a' }}
+      onBlur={e => {
+        if (!readOnly) e.target.style.borderColor = '#1a3a1a'
+        onBlur?.(e)
+      }}
     />
+  )
+}
+
+function CallsignBanner({ info }) {
+  if (!info) return null
+  if (info === 'loading') return (
+    <div style={{ fontSize: '0.6rem', color: '#007722', fontFamily: '"Share Tech Mono", monospace', padding: '2px 4px' }}>
+      looking up...
+    </div>
+  )
+  if (info === 'not-found') return (
+    <div style={{ fontSize: '0.6rem', color: '#ffb000', fontFamily: '"Share Tech Mono", monospace', padding: '2px 4px' }}>
+      callsign not found
+    </div>
+  )
+  const parts = [info.name, [info.city, info.state].filter(Boolean).join(', '), info.grid, info.class].filter(Boolean)
+  return (
+    <div style={{
+      fontSize: '0.65rem', color: '#00ff41',
+      background: 'rgba(0,255,65,0.07)',
+      fontFamily: '"Share Tech Mono", monospace',
+      padding: '2px 8px',
+      borderLeft: '2px solid #00ff41',
+    }}>
+      ✓ {parts.join(' — ')}
+    </div>
   )
 }
 
@@ -80,6 +109,8 @@ function useQSOLog() {
   const [freqLocked, setFreqLocked] = useState(false)
   const [modeLocked, setModeLocked] = useState(false)
   const [toast, setToast] = useState(null)
+  const [callsignInfo, setCallsignInfo] = useState(null)
+  const lookupTimer = useRef(null)
 
   useEffect(() => {
     window.api?.qso?.list().then(rows => { if (rows) setQsos(rows) })
@@ -137,6 +168,22 @@ function useQSOLog() {
     })
   }, [form.mode])
 
+  const triggerLookup = useCallback(async (call) => {
+    const trimmed = call.trim()
+    if (trimmed.length < 3) { setCallsignInfo(null); return }
+    setCallsignInfo('loading')
+    const result = await window.api?.callsign?.lookup(trimmed)
+    setCallsignInfo(result ?? 'not-found')
+  }, [])
+
+  useEffect(() => {
+    clearTimeout(lookupTimer.current)
+    const call = form.callsign.trim()
+    if (call.length < 3) { setCallsignInfo(null); return }
+    lookupTimer.current = setTimeout(() => triggerLookup(call), 800)
+    return () => clearTimeout(lookupTimer.current)
+  }, [form.callsign, triggerLookup])
+
   const showToast = useCallback((msg, type = 'ok') => {
     setToast({ msg, type })
     setTimeout(() => setToast(null), 3000)
@@ -156,6 +203,7 @@ function useQSOLog() {
     setForm(blankForm(freq, mode))
     setFreqLocked(false)
     setModeLocked(false)
+    setCallsignInfo(null)
   }
 
   async function handleLog() {
@@ -201,7 +249,8 @@ function useQSOLog() {
 
   return {
     form, setField, freqLocked, setFreqLocked, modeLocked, setModeLocked,
-    qsos, stats, toast, handleLog, handleClear, handleDelete, handleExport
+    qsos, stats, toast, handleLog, handleClear, handleDelete, handleExport,
+    callsignInfo, triggerLookup,
   }
 }
 
@@ -253,7 +302,8 @@ function QSORow({ qso, onDelete, idx }) {
 function ExpandedLog({ onClose, shared }) {
   const {
     form, setField, freqLocked, setFreqLocked, modeLocked, setModeLocked,
-    qsos, stats, toast, handleLog, handleClear, handleDelete, handleExport
+    qsos, stats, toast, handleLog, handleClear, handleDelete, handleExport,
+    callsignInfo, triggerLookup,
   } = shared
 
   const [search, setSearch] = useState('')
@@ -296,9 +346,13 @@ function ExpandedLog({ onClose, shared }) {
         {/* Form — 3-column grid */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '6px', marginBottom: '6px', flexShrink: 0 }}>
           {/* Row 1 */}
-          <div><label style={LBL}>CALLSIGN *</label>
+          <div>
+            <label style={LBL}>CALLSIGN *</label>
             <Inp value={form.callsign} placeholder="KJ5NUJ"
-              onChange={e => setField('callsign', e.target.value.toUpperCase())} /></div>
+              onChange={e => setField('callsign', e.target.value.toUpperCase())}
+              onBlur={() => triggerLookup(form.callsign)} />
+            <CallsignBanner info={callsignInfo} />
+          </div>
           <div><label style={LBL}>FREQ (MHz) *</label>
             <Inp value={form.freq} placeholder="14.060"
               onChange={e => { setFreqLocked(true); setField('freq', e.target.value) }} /></div>
@@ -388,7 +442,7 @@ const LBL = { fontSize: '0.5rem', color: '#00551a', letterSpacing: '0.1em', disp
 
 export default function QSOLog() {
   const shared = useQSOLog()
-  const { form, setField, setFreqLocked, setModeLocked, qsos, stats, toast, handleLog, handleClear, handleDelete, handleExport } = shared
+  const { form, setField, setFreqLocked, setModeLocked, qsos, stats, toast, handleLog, handleClear, handleDelete, handleExport, callsignInfo, triggerLookup } = shared
   const [expanded, setExpanded] = useState(false)
 
   return (
@@ -405,7 +459,8 @@ export default function QSOLog() {
         <div>
           <span style={LBL}>CALLSIGN *</span>
           <Inp value={form.callsign} placeholder="KJ5NUJ"
-            onChange={e => setField('callsign', e.target.value.toUpperCase())} />
+            onChange={e => setField('callsign', e.target.value.toUpperCase())}
+            onBlur={() => triggerLookup(form.callsign)} />
         </div>
         <div>
           <span style={LBL}>FREQ *</span>
@@ -469,6 +524,13 @@ export default function QSOLog() {
           EXPAND LOG
         </button>
       </div>
+
+      {/* Callsign lookup banner */}
+      {callsignInfo && (
+        <div style={{ flexShrink: 0 }}>
+          <CallsignBanner info={callsignInfo} />
+        </div>
+      )}
 
       {/* Toast + stats on same line */}
       <div style={{
