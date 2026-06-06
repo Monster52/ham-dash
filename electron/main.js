@@ -9,7 +9,8 @@ import { startAdifWatcher, stopAdifWatcher } from './adif-watcher.js'
 import { fetchPropagation, startPropagationTimer, stopPropagationTimer } from './propagation.js'
 import { openDatabase, closeDatabase, insertQso, listQsos, searchQsos, deleteQso, getStats } from './db.js'
 import { exportAdif } from './adif-export.js'
-import { startRbn, stopRbn, fetchSpots, getLastSpots } from './rbn.js'
+import { initRBN, getRBNSpots } from './rbn.js'
+import { initPOTA } from './pota.js'
 
 const store = new Store({
   defaults: {
@@ -108,9 +109,8 @@ function initHardware() {
     mainWindow?.webContents.send('qso:log', qsos)
   })
 
-  startRbn((spots) => {
-    mainWindow?.webContents.send('rbn:spots', spots)
-  })
+  initRBN(mainWindow)
+  initPOTA(mainWindow)
 
   startPropagationTimer((data) => {
     lastPropagationData = data
@@ -129,7 +129,6 @@ function shutdownHardware() {
   stopGPS()
   stopAdifWatcher()
   stopPropagationTimer()
-  stopRbn()
 }
 
 // --- IPC Handlers ---
@@ -177,16 +176,10 @@ ipcMain.handle('propagation:refresh', async () => {
   return data
 })
 
-// --- RBN handlers ---
+// --- QSO prefill relay ---
 
-ipcMain.handle('rbn:get', async () => {
-  return getLastSpots()
-})
-
-ipcMain.handle('rbn:refresh', async () => {
-  const spots = await fetchSpots()
-  mainWindow?.webContents.send('rbn:spots', spots)
-  return spots
+ipcMain.on('qso:prefill', (_, data) => {
+  mainWindow?.webContents.send('qso:prefill', data)
 })
 
 // --- QSO handlers ---

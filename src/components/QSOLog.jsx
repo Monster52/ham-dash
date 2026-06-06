@@ -94,6 +94,28 @@ function useQSOLog() {
   }, [pushed])
 
   useEffect(() => {
+    const unsub = window.api?.qso?.onPrefill?.((data) => {
+      setForm(f => {
+        const mode = data.mode || f.mode
+        const freq = data.freq_mhz != null ? data.freq_mhz.toFixed(3) : f.freq
+        const rst = defaultRst(mode)
+        return {
+          ...f,
+          callsign: data.callsign ? data.callsign.toUpperCase() : f.callsign,
+          freq,
+          band: freqToBand(freq),
+          mode,
+          rst_sent: rst,
+          rst_rcvd: rst,
+        }
+      })
+      if (data.freq_mhz != null) setFreqLocked(true)
+      if (data.mode) setModeLocked(true)
+    })
+    return () => unsub?.()
+  }, [])
+
+  useEffect(() => {
     if (!rigStatus) return
     if (!freqLocked && rigStatus.freq) {
       const mhz = (rigStatus.freq / 1e6).toFixed(3)

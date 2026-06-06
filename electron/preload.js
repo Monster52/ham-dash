@@ -57,6 +57,17 @@ const api = {
     refresh: () => ipcRenderer.invoke('rbn:refresh')
   },
 
+  // POTA
+  pota: {
+    onSpots: (cb) => {
+      const handler = (_, data) => cb(data)
+      ipcRenderer.on('pota:spots', handler)
+      return () => ipcRenderer.removeListener('pota:spots', handler)
+    },
+    get:     () => ipcRenderer.invoke('pota:get'),
+    refresh: () => ipcRenderer.invoke('pota:refresh')
+  },
+
   // QSO Log
   qso: {
     onLog: (cb) => {
@@ -64,6 +75,12 @@ const api = {
       ipcRenderer.on('qso:log', handler)
       return () => ipcRenderer.removeListener('qso:log', handler)
     },
+    onPrefill: (cb) => {
+      const handler = (_, data) => cb(data)
+      ipcRenderer.on('qso:prefill', handler)
+      return () => ipcRenderer.removeListener('qso:prefill', handler)
+    },
+    prefill: (data)   => ipcRenderer.send('qso:prefill', data),
     add:    (qso)     => ipcRenderer.invoke('qso:add', qso),
     list:   ()        => ipcRenderer.invoke('qso:list'),
     search: (query)   => ipcRenderer.invoke('qso:search', { query }),
