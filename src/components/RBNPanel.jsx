@@ -45,8 +45,22 @@ function ageLabel(minAgo) {
 }
 
 // ---- Map component ----
-const MAP_W = 900
-const MAP_H = 200
+// Internal coordinate space — fitSize maps geographic bounds to this rectangle.
+// SVG stretches to fill its container via preserveAspectRatio="none".
+const VP_W = 1000
+const VP_H = 500
+
+// Geographic bounds to fit: lon -130..+60, lat -10..+75
+const BOUNDS_GEOJSON = {
+  type: 'Feature',
+  geometry: {
+    type: 'Polygon',
+    coordinates: [[
+      [-130, -10], [60, -10], [60, 75], [-130, 75], [-130, -10]
+    ]]
+  },
+  properties: {}
+}
 
 function RBNMap({ spots }) {
   const countries = useMemo(
@@ -55,12 +69,12 @@ function RBNMap({ spots }) {
   )
   const graticule = useMemo(() => geoGraticule()(), [])
 
-  // Centered at lon=-30 (mid-Atlantic), lat=20 — shows NA, Europe, and Africa simultaneously
+  // rotate centers the Atlantic; fitSize eliminates dead space by computing
+  // scale and translate automatically to fill [VP_W, VP_H] exactly.
   const projection = useMemo(() =>
     geoEquirectangular()
       .rotate([30, -20])
-      .scale(115)
-      .translate([MAP_W / 2, MAP_H / 2]),
+      .fitSize([VP_W, VP_H], BOUNDS_GEOJSON),
     []
   )
 
@@ -82,8 +96,9 @@ function RBNMap({ spots }) {
 
   return (
     <svg
-      viewBox={`0 0 ${MAP_W} ${MAP_H}`}
-      style={{ width: '100%', display: 'block', background: '#0a0f0a' }}
+      viewBox={`0 0 ${VP_W} ${VP_H}`}
+      preserveAspectRatio="none"
+      style={{ width: '100%', height: '100%', display: 'block', background: '#0a0f0a' }}
     >
       {/* Graticule (grid lines) */}
       <path d={pathGen(graticule)} fill="none" stroke="#0f1a0f" strokeWidth={0.5} />
@@ -159,8 +174,8 @@ function SpotRow({ spot, idx }) {
       display: 'grid',
       gridTemplateColumns: '52px 90px 52px 70px 44px 44px 44px 1fr',
       gap: '4px',
-      padding: '2px 4px',
-      fontSize: '0.63rem',
+      padding: '2px 6px',
+      fontSize: '0.72rem',
       fontFamily: '"Share Tech Mono", monospace',
       background: idx % 2 === 0 ? 'transparent' : 'rgba(0,255,65,0.02)',
       opacity: actualAge > 20 ? 0.45 : 1,
@@ -286,8 +301,8 @@ export default function RBNPanel() {
         </div>
       </div>
 
-      {/* Map */}
-      <div style={{ flexShrink: 0, borderBottom: '1px solid #1a3a1a' }}>
+      {/* Map — grows to fill available vertical space */}
+      <div style={{ flex: '1 1 auto', minHeight: '350px', borderBottom: '1px solid #1a3a1a', overflow: 'hidden' }}>
         <RBNMap spots={spots} />
       </div>
 
@@ -332,9 +347,9 @@ export default function RBNPanel() {
         </div>
       )}
 
-      {/* Spot list */}
-      <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
-        {spots.map((s, i) => (
+      {/* Spot list — capped at 10 rows / 200px */}
+      <div style={{ maxHeight: '200px', overflowY: 'auto', flexShrink: 0 }}>
+        {spots.slice(0, 10).map((s, i) => (
           <SpotRow key={s.id} spot={s} idx={i} tick={tick} />
         ))}
       </div>
