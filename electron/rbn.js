@@ -120,6 +120,106 @@ const SKIMMER_GRIDS = {
   'PY2WC':'GG66',
 };
 
+// Fallback: derive approximate grid from callsign prefix when the exact
+// callsign isn't in SKIMMER_GRIDS.  Tries 3-char, 2-char, 1-char prefixes.
+const PREFIX_GRID = {
+  // North America
+  'W1':'FN42','K1':'FN42','N1':'FN42',
+  'W2':'FN20','K2':'FN20','N2':'FN20',
+  'W3':'FM19','K3':'FM19','N3':'FM19',
+  'W4':'EM63','K4':'EM63','N4':'EM63',
+  'W5':'EM20','K5':'EM20','N5':'EM20',
+  'W6':'DM04','K6':'DM04','N6':'DM04',
+  'W7':'DN31','K7':'DN31','N7':'DN31',
+  'W8':'EN82','K8':'EN82','N8':'EN82',
+  'W9':'EN52','K9':'EN52','N9':'EN52',
+  'W0':'DN70','K0':'DN70','N0':'DN70',
+  'AA':'FN20','AB':'FN20','AC':'EN34','AD':'DM79','AE':'FN20',
+  'AF':'FN20','AG':'FN20','AI':'FN20','AJ':'FN20','AK':'DN70',
+  'WA':'FN20','WB':'FN20','WC':'FN20','WD':'FN20','WE':'EN52',
+  'WF':'EN52','WG':'EN52','WI':'EN52','WJ':'FN20','WK':'FN20',
+  'WN':'FN20','WO':'EN52','WP':'FK68','WQ':'FN20','WR':'FN20',
+  'WS':'FN20','WT':'EN52','WU':'FN20','WV':'EM63','WX':'DN31',
+  'WY':'DN31','WZ':'DM43',
+  'KA':'FN20','KB':'EN52','KC':'EN52','KD':'DM43','KE':'FM19',
+  'KF':'FM19','KG':'FM19','KI':'EN52','KJ':'FM19','KK':'EN52',
+  'KN':'FN20','KO':'EM63','KQ':'EN52','KR':'FM19','KS':'EN52',
+  'KT':'EN52','KU':'DN31','KV':'EM63','KW':'DN31','KX':'EN52',
+  'KY':'FM19','KZ':'EN52',
+  // Canada
+  'VE1':'FN74','VE2':'FN35','VE3':'FN03','VE4':'EN19',
+  'VE5':'DO33','VE6':'DO20','VE7':'CN89','VE8':'CP47','VE9':'FN65',
+  'VA':'FN25','VY':'FP62',
+  // Europe — UK / Ireland
+  'G':'IO91','M':'IO91','2E':'IO91','GW':'IO71','GM':'IO75',
+  'GI':'IO74','GJ':'IN89','GU':'IN89','EI':'IO63',
+  // Europe — Scandinavia
+  'LA':'JP99','LB':'JP99','LC':'JP99','LD':'JP99','LE':'JP99',
+  'LF':'JP99','LG':'JP99','LH':'JP99','LJ':'JP99',
+  'SM':'JP70','SA':'JP70','SB':'JP70','SC':'JP70',
+  'SD':'JP70','SE':'JP70','SF':'JP70','SG':'JP70','SH':'JP70',
+  'SI':'JP70','SJ':'JP70','SK':'JP70','SL':'JP70',
+  'OZ':'JO55','5P':'JO55',
+  'OH':'KP20','OF':'KP20','OG':'KP20','OI':'KP20','OJ':'KP20',
+  'ES':'KO29',
+  'YL':'KO26','LY':'KO24',
+  'TF':'HP94',
+  // Europe — Germany / DACH
+  'DL':'JO31','DJ':'JO31','DK':'JO31','DA':'JO31','DB':'JO31',
+  'DC':'JO31','DD':'JO31','DE':'JO31','DF':'JN49','DG':'JO31',
+  'DH':'JO31','DI':'JO31','DM':'JO31','DN':'JO31','DO':'JO31',
+  'DP':'JO31','DQ':'JO31','DR':'JO31',
+  'OE':'JN77','HB':'JN47',
+  // Europe — France / Iberia
+  'F':'JN03','TM':'JN03',
+  'EA':'IM68','EB':'IM68','EC':'IM68','ED':'IM68',
+  'CT':'IM58',
+  // Europe — BeNeLux
+  'PA':'JO22','PB':'JO22','PC':'JO22','PD':'JO22','PE':'JO22',
+  'PF':'JO22','PG':'JO22','PH':'JO22','PI':'JO22',
+  'ON':'JO20',
+  // Europe — Italy
+  'I':'JN45','IK':'JN45','IW':'JN45','IZ':'JN45','II':'JN45',
+  'IT':'JM67',
+  // Europe — Eastern
+  'HA':'JN97','HG':'JN97',
+  'OK':'JO70','OL':'JO70','OM':'JN98',
+  'SP':'KO02','SN':'KO02','SO':'KO02','SQ':'KO02','SR':'KO02',
+  'S5':'JN76',
+  'YO':'KN46','YP':'KN46','YQ':'KN46','YR':'KN46',
+  'LZ':'KN22',
+  'SV':'KM18','J4':'KM18',
+  // Europe — Balkans / former Soviet
+  'UT':'KO50','UR':'KO50','US':'KO50','UV':'KO50','UW':'KO50',
+  'EM':'KO50','EN':'KO50','EO':'KO50',
+  'RA':'KO85','RN':'KO85','RK':'KO85','RU':'KO85','RV':'KO85',
+  'UA':'KO85','RW':'KO85','RX':'KO85','RY':'KO85','RZ':'KO85',
+  'R9':'MP40','R0':'OP62',
+  // Asia / Pacific
+  'JA':'PM86','JH':'PM86','JI':'PM86','JJ':'PM86','JK':'PM86',
+  'JL':'PM86','JM':'PM86','JN':'PM86','JO':'PM86',
+  'HL':'PM37','DS':'PM37',
+  'VK':'QF22','VK2':'QF56','VK3':'QF22','VK4':'QG62',
+  'ZL':'RF70',
+  // South America
+  'PY':'GG87','PP':'GG87','PQ':'GG87','PR':'GG87','PS':'GG87',
+  'PT':'GG87','PU':'GG87','PV':'GG87','PW':'GG87','PX':'GG87',
+  'LU':'GF05','LW':'GF05',
+  // Africa / Middle East
+  'ZS':'KG33','ZR':'KG33','ZT':'KG33','ZU':'KG33',
+  'EA8':'IL18',
+};
+
+function prefixToGrid(call) {
+  if (!call) return null;
+  const c = call.toUpperCase().replace(/[-/].*$/, ''); // strip -2, /P, etc.
+  for (let len = 3; len >= 1; len--) {
+    const g = PREFIX_GRID[c.slice(0, len)];
+    if (g) return g;
+  }
+  return null;
+}
+
 // DX de SPOTTER: FREQ  DX  MODE  SNR dB [SPEED WPM]
 const DX_RE = /^DX de (\S+):\s+([\d.]+)\s+(\S+)\s+(\S+)\s+([+-]?\d+)\s+dB(?:\s+(\d+)\s+WPM)?/;
 
@@ -173,7 +273,7 @@ function parseLine(line) {
   const spot = {
     id: ++spotIdCounter,
     spotter,
-    spotter_grid: SKIMMER_GRIDS[spotter] || null,
+    spotter_grid: SKIMMER_GRIDS[spotter] || prefixToGrid(spotter) || null,
     freq_mhz: freqMhz,
     band: getBand(freqMhz),
     mode,
