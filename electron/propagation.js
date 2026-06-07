@@ -137,33 +137,40 @@ function parseXml(xml) {
 
 const HOME_LON = -89.15
 
-// Time/season-aware foF2 estimate from solar flux + K-index.
+// ITU-R P.1239-based foF2 estimate from solar flux + K-index.
 function deriveMuf(sfi, kindex) {
   const sfiNum = parseFloat(sfi)
   const kNum = parseFloat(kindex)
   if (isNaN(sfiNum) || isNaN(kNum)) return null
 
   const utcHour = new Date().getUTCHours()
-  const localSolarHour = ((utcHour + (HOME_LON / 15)) + 24) % 24
+  const utcMin  = new Date().getUTCMinutes()
+  const decimalHour = utcHour + utcMin / 60
 
-  const dayFactor = Math.max(0.15,
+  const localSolarHour = ((decimalHour + HOME_LON / 15) + 24) % 24
+
+  const dayFactor = Math.max(0.2,
     Math.cos((localSolarHour - 12) * Math.PI / 12))
 
-  const geoFactor = Math.max(0.4, 1 - (kNum * 0.08))
+  const geoFactor = Math.max(0.5, 1 - (kNum * 0.06))
 
   const month = new Date().getUTCMonth()
-  const seasonFactor = 1 + 0.15 *
+  const seasonFactor = 1 + 0.2 *
     Math.cos((month - 6) * Math.PI / 6)
 
-  const foF2 = (0.00867 * sfiNum + 2.1)
+  const foF2 = (0.0196 * sfiNum + 3.0)
     * dayFactor * geoFactor * seasonFactor
-  const muf = Math.round(foF2 * 3.8 * 10) / 10
 
-  const foF2c = Math.max(2, Math.min(foF2, 15))
-  const mufc  = Math.max(2, Math.min(muf, 50))
+  const muf = foF2 * 3.8
+
+  const foF2c = Math.round(Math.max(2, Math.min(foF2, 15)) * 10) / 10
+  const mufc  = Math.round(Math.max(4, Math.min(muf, 55)) * 10) / 10
+
+  console.log('[propagation] MUF calc inputs:',
+    { sfi: sfiNum, kindex: kNum, localSolarHour, dayFactor, geoFactor, seasonFactor, foF2c, mufc })
 
   return {
-    foF2: Math.round(foF2c * 10) / 10,
+    foF2: foF2c,
     muf: mufc,
     source: 'est.'
   }
