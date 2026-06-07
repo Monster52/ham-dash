@@ -131,10 +131,18 @@ async function fetchNoaaData() {
     let kp = null
     if (kpRes.status === 'fulfilled' && kpRes.value.status === 200) {
       const arr = JSON.parse(kpRes.value.body)
-      for (let i = arr.length - 1; i >= 1; i--) {
-        const v = parseFloat(arr[i][1])
-        if (!isNaN(v)) { kp = v; break }
+      for (let i = arr.length - 1; i >= 0; i--) {
+        const entry = arr[i]
+        if (typeof entry === 'object' && entry !== null && typeof entry.Kp === 'number') {
+          kp = entry.Kp
+          break
+        }
       }
+    }
+
+    // Fall back to HamQSL SFI if alert parse came up empty — SFI changes slowly
+    if (sfi == null && lastHamQSLData?.sfi != null) {
+      sfi = parseFloat(lastHamQSLData.sfi) || null
     }
 
     if (kp != null || sfi != null) {
@@ -150,7 +158,9 @@ function selectActiveSource() {
   if (cachedIonoResult && cachedIonoResult.score >= 0.25) return 'ionosonde'
   if (cachedNoaaResult) {
     const ageMin = (Date.now() - cachedNoaaResult.fetchedAt) / 60000
-    if (ageMin <= 15) return 'noaa'
+    if (ageMin <= 20) return 'noaa'
+    // Cache stale — kick off a background refresh for next cycle
+    fetchNoaaData()
   }
   return 'empirical'
 }
@@ -313,6 +323,12 @@ export function stopPropagationTimer() {
 
 export async function fetchPropagation() {
   await Promise.allSettled([fetchHamQSL(), fetchKC2GStations(), fetchNoaaData()])
+  console.log('[propagation] init complete:', {
+    hamqsl:      lastHamQSLData ? 'ok' : 'failed',
+    noaa:        cachedNoaaResult ? 'ok Kp=' + cachedNoaaResult.kp : 'failed',
+    ionosonde:   cachedIonoResult ? 'ok ' + cachedIonoResult.stationCode : 'no valid stations',
+    activeSource: selectActiveSource(),
+  })
   return emitUpdate() ?? { error: 'No data available', updated: new Date().toISOString() }
 }
 
