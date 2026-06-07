@@ -1,22 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { useIPCEvent } from '../hooks/useIPC'
 
-const BANDS = ['80m', '40m', '20m', '17m', '15m', '12m', '10m']
-
-const BAND_MUF_THRESHOLDS = {
-  '10m': [28, 23],
-  '15m': [21, 17],
-  '17m': [18, 15],
-}
-
-function mufStatus(muf, band) {
-  const t = BAND_MUF_THRESHOLDS[band]
-  if (!t || muf == null) return null
-  if (muf >= t[0]) return 'OPEN'
-  if (muf >= t[1]) return 'MARG'
-  return 'CLSD'
-}
-
 const STATUS_COLOR = { OPEN: '#00ff41', MARG: '#ffb000', CLSD: '#ff2200' }
 
 function kColor(k) {
@@ -27,27 +11,31 @@ function kColor(k) {
   return '#00ff41'
 }
 
-function isDaytime() {
-  const h = new Date().getUTCHours()
-  return h >= 6 && h < 20
+function mufLabelColor(source) {
+  if (source === 'ionosonde') return '#00ff41'
+  if (source === 'noaa')      return '#00ddff'
+  return '#ffb000'
 }
 
-function bandCondColor(c) {
-  if (!c) return '#335533'
-  const l = c.toLowerCase()
-  if (l === 'good') return '#00ff41'
-  if (l === 'fair') return '#ffb000'
-  if (l === 'poor') return '#ff2200'
-  return '#335533'
-}
-
-function bandCondLetter(c) {
-  if (!c) return '?'
-  const l = c.toLowerCase()
-  if (l === 'good') return 'G'
-  if (l === 'fair') return 'F'
-  if (l === 'poor') return 'P'
-  return '?'
+function BandBadge({ band, status }) {
+  const color = status ? STATUS_COLOR[status] : '#335533'
+  return (
+    <span
+      title={`${band}: ${status || 'unknown'}`}
+      style={{
+        display: 'inline-flex', flexDirection: 'column', alignItems: 'center',
+        padding: '2px 5px',
+        background: `${color}18`,
+        border: `1px solid ${color}55`,
+        fontSize: '0.68rem',
+        cursor: 'default',
+        minWidth: '32px',
+      }}
+    >
+      <span style={{ color: '#00551a' }}>{band}</span>
+      <span style={{ color, fontWeight: 'bold' }}>{status ?? '--'}</span>
+    </span>
+  )
 }
 
 export default function BandConditions() {
@@ -60,10 +48,15 @@ export default function BandConditions() {
   }, [])
 
   const raw = pushed ?? pulled
-  const hasError = raw?.error != null
-  const propData = hasError ? null : raw
-  const muf = propData?.muf
-  const daytime = isDaytime()
+  const hasError  = raw?.error != null
+  const propData  = hasError ? null : raw
+  const muf       = propData?.muf
+  const mufSource   = propData?.mufSource
+  const mufLabel    = propData?.mufLabel
+  const mufDetail   = propData?.mufDetail
+  const mufAdjusted = propData?.mufAdjusted
+  const nvisBands   = propData?.nvisBands
+  const dxBands     = propData?.dxBands
 
   const handleRefresh = async () => {
     setRefreshing(true)
@@ -71,9 +64,10 @@ export default function BandConditions() {
     setRefreshing(false)
   }
 
-  const lbl = { color: '#00551a', marginRight: '3px', fontSize: '0.7rem' }
-  const val = { fontSize: '0.85rem' }
-  const row = { display: 'flex', alignItems: 'center', gap: '10px', padding: '3px 0' }
+  const lbl        = { color: '#00551a', marginRight: '3px', fontSize: '0.7rem' }
+  const val        = { fontSize: '0.85rem' }
+  const row        = { display: 'flex', alignItems: 'center', gap: '10px', padding: '3px 0' }
+  const labelColor = mufLabelColor(mufSource)
 
   return (
     <div style={{
@@ -84,7 +78,7 @@ export default function BandConditions() {
       padding: '6px',
       fontFamily: '"Share Tech Mono", monospace'
     }}>
-      {/* Row 1: header */}
+      {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px' }}>
         <span style={{ fontSize: '0.62rem', color: '#00aa2b', letterSpacing: '0.12em' }}>
           BAND CONDITIONS
@@ -105,7 +99,7 @@ export default function BandConditions() {
         </div>
       </div>
 
-      {/* Row 2: solar indices */}
+      {/* Solar indices */}
       <div style={{ ...row, borderTop: '1px solid #111f11', paddingTop: '4px' }}>
         {[
           ['SFI', propData?.sfi, null],
@@ -126,69 +120,56 @@ export default function BandConditions() {
         ))}
       </div>
 
-      {/* Row 3: MUF + foF2 + open indicators */}
+      {/* MUF + foF2 */}
       <div style={{ ...row, borderTop: '1px solid #111f11' }}>
         <span>
           <span style={lbl}>MUF:</span>
-          <span style={{ ...val, color: muf ? '#00ff41' : '#335533' }}>
-            {muf ? `${muf.muf}MHz` : '--'}
+          <span style={{ ...val, color: muf?.muf != null ? '#00ff41' : '#335533' }}>
+            {muf?.muf != null ? `${mufAdjusted ? '~' : ''}${muf.muf}MHz` : '--'}
           </span>
-          {muf && (
+          {mufLabel && (
             <span
-              title={muf.source === 'est.'
-                ? 'Estimated from SFI + K-index (ITU-R P.1239, ±2–3 MHz)'
-                : `${muf.stationName} — ${muf.distKm} km — ${muf.ageMin} min ago`}
-              style={{ color: '#ffb000', fontSize: '0.6rem', marginLeft: '3px', cursor: 'help' }}
+              title={mufDetail || ''}
+              style={{ color: labelColor, fontSize: '0.6rem', marginLeft: '3px', cursor: 'help' }}
             >
-              [{muf.source}]
+              {mufLabel}
             </span>
           )}
         </span>
         <span>
           <span style={lbl}>foF2:</span>
-          <span style={{ ...val, color: muf ? '#00aa2b' : '#335533' }}>
-            {muf ? `${muf.foF2}MHz` : '--'}
+          <span style={{ ...val, color: muf?.foF2 != null ? '#00aa2b' : '#335533' }}>
+            {muf?.foF2 != null ? `${muf.foF2}MHz` : '--'}
           </span>
         </span>
-        {['10m', '15m', '17m'].map(band => {
-          const status = muf?.muf != null ? mufStatus(muf.muf, band) : null
-          const color = status ? STATUS_COLOR[status] : '#335533'
-          return (
-            <span key={band}>
-              <span style={{ ...lbl }}>{band}:</span>
-              <span style={{ ...val, color }}>{status ?? '--'}</span>
-            </span>
-          )
-        })}
       </div>
 
-      {/* Row 4: band badges */}
-      <div style={{ display: 'flex', gap: '4px', paddingTop: '4px', borderTop: '1px solid #111f11', flexWrap: 'nowrap' }}>
-        {BANDS.map(band => {
-          const cond = daytime
-            ? (propData?.bands?.[band]?.day ?? propData?.bands?.[band]?.night)
-            : (propData?.bands?.[band]?.night ?? propData?.bands?.[band]?.day)
-          const color = bandCondColor(cond)
-          const letter = bandCondLetter(cond)
-          return (
-            <span
-              key={band}
-              title={`${band}: ${cond || 'unknown'} (${daytime ? 'day' : 'night'})`}
-              style={{
-                display: 'inline-flex', gap: '3px', alignItems: 'center',
-                padding: '2px 5px',
-                background: `${color}18`,
-                border: `1px solid ${color}55`,
-                fontSize: '0.68rem',
-                cursor: 'default',
-                whiteSpace: 'nowrap'
-              }}
-            >
-              <span style={{ color: '#00551a' }}>{band}</span>
-              <span style={{ color, fontWeight: 'bold' }}>{letter}</span>
-            </span>
-          )
-        })}
+      {/* NVIS band badges */}
+      <div style={{ borderTop: '1px solid #111f11', paddingTop: '4px' }}>
+        <div style={{ fontSize: '0.52rem', color: '#00441a', marginBottom: '2px' }}>NVIS</div>
+        <div style={{ display: 'flex', gap: '4px', flexWrap: 'nowrap' }}>
+          {['160m', '80m', '40m', '30m'].map(band => (
+            <BandBadge key={band} band={band} status={nvisBands?.[band]} />
+          ))}
+        </div>
+      </div>
+
+      {/* DX band badges */}
+      <div style={{ borderTop: '1px solid #111f11', paddingTop: '4px' }}>
+        <div style={{ fontSize: '0.52rem', color: '#00441a', marginBottom: '2px' }}>DX</div>
+        <div style={{ display: 'flex', gap: '4px', flexWrap: 'nowrap' }}>
+          {['20m', '17m', '15m', '10m'].map(band => (
+            <BandBadge key={band} band={band} status={dxBands?.[band]} />
+          ))}
+        </div>
+      </div>
+
+      {/* Source indicator */}
+      <div style={{ fontSize: '0.52rem', color: '#00441a', paddingTop: '3px', borderTop: '1px solid #111f11' }}>
+        {mufSource === 'ionosonde' && `ionosonde: ${propData?.muf?.stationName || ''}`}
+        {mufSource === 'noaa'      && 'NOAA real-time Kp'}
+        {mufSource === 'empirical' && 'empirical estimate (HamQSL)'}
+        {!mufSource                && 'no data'}
       </div>
     </div>
   )
