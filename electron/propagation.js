@@ -180,6 +180,18 @@ function deriveBandStatus(fof2, muf) {
   return { nvis, dx }
 }
 
+function calcDayFactor(localSolarHour) {
+  if (localSolarHour >= 6 && localSolarHour <= 20) {
+    const peak   = 14.0
+    const spread = localSolarHour < peak ? 8.0 : 12.0
+    return Math.max(0.35, Math.exp(-0.5 * Math.pow((localSolarHour - peak) / spread, 2)))
+  } else {
+    const nightHour        = localSolarHour < 6 ? localSolarHour + 24 : localSolarHour
+    const distFromMidnight = Math.abs(nightHour - 24)
+    return 0.25 + (distFromMidnight / 18) * 0.10
+  }
+}
+
 function deriveMuf(sfi, kindex) {
   const sfiNum = parseFloat(sfi)
   const kNum   = parseFloat(kindex)
@@ -190,7 +202,7 @@ function deriveMuf(sfi, kindex) {
   const decimalHour    = utcHour + utcMin / 60
   const localSolarHour = ((decimalHour + HOME_LON / 15) + 24) % 24
 
-  const dayFactor    = Math.max(0.2, Math.cos((localSolarHour - 12) * Math.PI / 12))
+  const dayFactor    = calcDayFactor(localSolarHour)
   const geoFactor    = Math.max(0.5, 1 - (kNum * 0.06))
   const month        = new Date().getUTCMonth()
   const seasonFactor = 1 + 0.2 * Math.cos((month - 6) * Math.PI / 6)
