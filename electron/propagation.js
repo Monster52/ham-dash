@@ -104,16 +104,36 @@ function parseXml(xml) {
   }
 }
 
-// URSI empirical MUF estimate from solar flux + K-index.
-// foF2 clamped to minimum 2.0 MHz (ionosphere always present).
+const HOME_LON = -89.15
+
+// Time/season-aware foF2 estimate from solar flux + K-index.
 function deriveMuf(sfi, kindex) {
   const sfiNum = parseFloat(sfi)
   const kNum = parseFloat(kindex)
   if (isNaN(sfiNum) || isNaN(kNum)) return null
-  const foF2 = Math.max(2.0, (0.00825 * sfiNum + 1.9) * (1 - 0.1 * kNum))
+
+  const utcHour = new Date().getUTCHours()
+  const localSolarHour = ((utcHour + (HOME_LON / 15)) + 24) % 24
+
+  const dayFactor = Math.max(0.15,
+    Math.cos((localSolarHour - 12) * Math.PI / 12))
+
+  const geoFactor = Math.max(0.4, 1 - (kNum * 0.08))
+
+  const month = new Date().getUTCMonth()
+  const seasonFactor = 1 + 0.15 *
+    Math.cos((month - 6) * Math.PI / 6)
+
+  const foF2 = (0.00867 * sfiNum + 2.1)
+    * dayFactor * geoFactor * seasonFactor
+  const muf = Math.round(foF2 * 3.8 * 10) / 10
+
+  const foF2c = Math.max(2, Math.min(foF2, 15))
+  const mufc  = Math.max(2, Math.min(muf, 50))
+
   return {
-    foF2: Math.round(foF2 * 10) / 10,
-    muf: Math.round(foF2 * 3.8 * 10) / 10,
+    foF2: Math.round(foF2c * 10) / 10,
+    muf: mufc,
     source: 'est.'
   }
 }
