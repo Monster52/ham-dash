@@ -1,31 +1,14 @@
 import { XMLParser } from 'fast-xml-parser'
 import https from 'https'
 
-let timer = null
-let kpTimer = null
-let dataCallback = null
-let realTimeKp = null
+let timer     = null
+let ionoTimer = null
+let dataCallback      = null
+let cachedIonoStation = null  // null | { fof2, mufd, stationCode, stationName, distKm, ageMin, cs }
 
-const NOAA_KP_URL = 'https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json'
-
-async function fetchNoaaKp() {
-  try {
-    const { body, status } = await httpGet(NOAA_KP_URL)
-    if (status !== 200) return
-    const rows = JSON.parse(body)
-    // rows[0] is the header; scan from the end for the first numeric Kp
-    for (let i = rows.length - 1; i >= 1; i--) {
-      const kp = parseFloat(rows[i]?.[1])
-      if (!isNaN(kp)) {
-        realTimeKp = kp
-        console.log('[propagation] NOAA Kp updated:', kp)
-        return
-      }
-    }
-  } catch (e) {
-    console.error('[propagation] NOAA Kp fetch failed:', e.message)
-  }
-}
+const KC2G_URL = 'https://prop.kc2g.com/api/stations.json'
+const HOME_LAT =  30.35
+const HOME_LON = -89.15
 
 // HamQSL XML uses compound band names; normalize them to the keys the UI expects.
 const BAND_NAME_MAP = {
@@ -35,20 +18,88 @@ const BAND_NAME_MAP = {
   '12m-10m': ['12m', '10m'],
 }
 
+function haversineKm(lat1, lon1, lat2, lon2) {
+  const R = 6371
+  const toRad = x => x * Math.PI / 180
+  const dLat = toRad(lat2 - lat1)
+  const dLon = toRad(lon2 - lon1)
+  const a = Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2
+  return Math.round(R * 2 * Math.asin(Math.sqrt(a)))
+}
+
+async function fetchKC2GStations() {
+  try {
+    const { body, status } = await httpGet(KC2G_URL)
+    if (status !== 200) {
+      console.error('[propagation] KC2G HTTP', status)
+      return
+    }
+
+    const stations = JSON.parse(body)
+    const now = Date.now()
+
+    // Filter: cs > 0 and time within 90 minutes
+    const valid = stations.filter(s => {
+      if (!s.cs || s.cs <= 0) return false
+      if (!s.time) return false
+      const ageMs = now - new Date(s.time).getTime()
+      return ageMs >= 0 && ageMs <= 90 * 60 * 1000
+    })
+
+    if (valid.length === 0) {
+      console.log('[propagation] KC2G: no valid stations — empirical fallback active')
+      cachedIonoStation = null
+      return
+    }
+
+    // Compute haversine distance; KC2G uses 0-360 longitude
+    const withDist = valid.map(s => {
+      const lonSigned = s.station.longitude > 180 ? s.station.longitude - 360 : s.station.longitude
+      const distKm = haversineKm(HOME_LAT, HOME_LON, s.station.latitude, lonSigned)
+      return { ...s, distKm }
+    })
+
+    // 3 nearest, then highest cs among them
+    withDist.sort((a, b) => a.distKm - b.distKm)
+    const nearest3 = withDist.slice(0, 3)
+    const best = nearest3.reduce((a, b) => b.cs > a.cs ? b : a)
+
+    const ageMin = Math.round((now - new Date(best.time).getTime()) / 60000)
+    const stationCode = best.station.ursiCode
+      || best.station.name?.split(/[\s,]/)[0]
+      || 'IONO'
+
+    cachedIonoStation = {
+      fof2:        best.fof2,
+      mufd:        best.mufd,
+      stationCode,
+      stationName: best.station.name || stationCode,
+      distKm:      best.distKm,
+      ageMin,
+      cs:          best.cs,
+    }
+
+    console.log(`[propagation] MUF source: ${stationCode} (${best.station.name}, ${best.distKm}km, cs:${best.cs})`)
+  } catch (e) {
+    console.error('[propagation] KC2G fetch failed:', e.message)
+  }
+}
+
 export function startPropagationTimer(onData) {
   dataCallback = onData
   timer = setInterval(async () => {
     const result = await fetchPropagation()
     dataCallback?.(result)
   }, 60 * 60 * 1000)
-  // Prime NOAA Kp immediately, then poll every 3 minutes
-  fetchNoaaKp()
-  kpTimer = setInterval(fetchNoaaKp, 3 * 60 * 1000)
+  // Prime ionosonde data immediately, then poll every 15 minutes
+  fetchKC2GStations()
+  ionoTimer = setInterval(fetchKC2GStations, 15 * 60 * 1000)
 }
 
 export function stopPropagationTimer() {
-  if (timer)   { clearInterval(timer);   timer   = null }
-  if (kpTimer) { clearInterval(kpTimer); kpTimer = null }
+  if (timer)     { clearInterval(timer);     timer     = null }
+  if (ionoTimer) { clearInterval(ionoTimer); ionoTimer = null }
 }
 
 export async function fetchPropagation() {
@@ -116,62 +167,63 @@ function parseXml(xml) {
     }
   }
 
-  const sfi = solardata['solarflux']
+  const sfi    = solardata['solarflux']
   const kindex = solardata['kindex']
-  const kpSource = realTimeKp !== null ? 'live' : '3h'
-  const kpEffective = realTimeKp !== null ? realTimeKp : parseFloat(kindex)
+
+  // Real ionosonde data takes priority; fall back to empirical formula
+  let muf
+  if (cachedIonoStation) {
+    muf = {
+      foF2:        Math.round(cachedIonoStation.fof2 * 10) / 10,
+      muf:         Math.round(cachedIonoStation.mufd * 10) / 10,
+      source:      cachedIonoStation.stationCode,
+      stationName: cachedIonoStation.stationName,
+      distKm:      cachedIonoStation.distKm,
+      ageMin:      cachedIonoStation.ageMin,
+    }
+  } else {
+    console.log('[propagation] MUF source: empirical fallback (no valid stations)')
+    muf = deriveMuf(sfi, kindex)
+  }
 
   return {
     sfi,
-    aindex: solardata['aindex'],
+    aindex:   solardata['aindex'],
     kindex,
-    kp: kpEffective,
-    kpSource,
-    xray: solardata['xray'],
+    kp:       parseFloat(kindex),
+    kpSource: '3h',
+    xray:     solardata['xray'],
     sunspots: solardata['sunspots'],
-    bands: bandMap,
-    muf: deriveMuf(sfi, kpEffective),
-    updated: new Date().toISOString()
+    bands:    bandMap,
+    muf,
+    updated:  new Date().toISOString()
   }
 }
 
-const HOME_LON = -89.15
-
-// ITU-R P.1239-based foF2 estimate from solar flux + K-index.
+// ITU-R P.1239-based foF2 estimate — empirical fallback only.
 function deriveMuf(sfi, kindex) {
   const sfiNum = parseFloat(sfi)
-  const kNum = parseFloat(kindex)
+  const kNum   = parseFloat(kindex)
   if (isNaN(sfiNum) || isNaN(kNum)) return null
 
   const utcHour = new Date().getUTCHours()
   const utcMin  = new Date().getUTCMinutes()
-  const decimalHour = utcHour + utcMin / 60
-
+  const decimalHour    = utcHour + utcMin / 60
   const localSolarHour = ((decimalHour + HOME_LON / 15) + 24) % 24
 
-  const dayFactor = Math.max(0.2,
-    Math.cos((localSolarHour - 12) * Math.PI / 12))
+  const dayFactor    = Math.max(0.2, Math.cos((localSolarHour - 12) * Math.PI / 12))
+  const geoFactor    = Math.max(0.5, 1 - (kNum * 0.06))
+  const month        = new Date().getUTCMonth()
+  const seasonFactor = 1 + 0.2 * Math.cos((month - 6) * Math.PI / 6)
 
-  const geoFactor = Math.max(0.5, 1 - (kNum * 0.06))
-
-  const month = new Date().getUTCMonth()
-  const seasonFactor = 1 + 0.2 *
-    Math.cos((month - 6) * Math.PI / 6)
-
-  const foF2 = (0.0179 * sfiNum + 2.7)
-    * dayFactor * geoFactor * seasonFactor
-
-  const muf = foF2 * 3.8
+  const foF2 = (0.0179 * sfiNum + 2.7) * dayFactor * geoFactor * seasonFactor
+  const muf  = foF2 * 3.8
 
   const foF2c = Math.round(Math.max(2, Math.min(foF2, 15)) * 10) / 10
-  const mufc  = Math.round(Math.max(4, Math.min(muf, 55)) * 10) / 10
+  const mufc  = Math.round(Math.max(4, Math.min(muf,  55)) * 10) / 10
 
   console.log('[propagation] MUF calc inputs:',
     { sfi: sfiNum, kindex: kNum, localSolarHour, dayFactor, geoFactor, seasonFactor, foF2c, mufc })
 
-  return {
-    foF2: foF2c,
-    muf: mufc,
-    source: 'est.'
-  }
+  return { foF2: foF2c, muf: mufc, source: 'est.' }
 }

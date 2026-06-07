@@ -135,10 +135,12 @@ export default function BandConditions() {
           </span>
           {muf && (
             <span
-              title="Estimated from SFI + K-index (URSI formula, ±2–3 MHz)"
+              title={muf.source === 'est.'
+                ? 'Estimated from SFI + K-index (ITU-R P.1239, ±2–3 MHz)'
+                : `${muf.stationName} — ${muf.distKm} km — ${muf.ageMin} min ago`}
               style={{ color: '#ffb000', fontSize: '0.6rem', marginLeft: '3px', cursor: 'help' }}
             >
-              [est.]
+              [{muf.source}]
             </span>
           )}
         </span>
