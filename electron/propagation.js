@@ -158,7 +158,7 @@ function deriveMuf(sfi, kindex) {
   const seasonFactor = 1 + 0.2 *
     Math.cos((month - 6) * Math.PI / 6)
 
-  const foF2 = (0.0196 * sfiNum + 3.0)
+  const foF2 = (0.0162 * sfiNum + 2.4)
     * dayFactor * geoFactor * seasonFactor
 
   const muf = foF2 * 3.8
