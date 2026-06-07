@@ -2,7 +2,30 @@ import { XMLParser } from 'fast-xml-parser'
 import https from 'https'
 
 let timer = null
+let kpTimer = null
 let dataCallback = null
+let realTimeKp = null
+
+const NOAA_KP_URL = 'https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json'
+
+async function fetchNoaaKp() {
+  try {
+    const { body, status } = await httpGet(NOAA_KP_URL)
+    if (status !== 200) return
+    const rows = JSON.parse(body)
+    // rows[0] is the header; scan from the end for the first numeric Kp
+    for (let i = rows.length - 1; i >= 1; i--) {
+      const kp = parseFloat(rows[i]?.[1])
+      if (!isNaN(kp)) {
+        realTimeKp = kp
+        console.log('[propagation] NOAA Kp updated:', kp)
+        return
+      }
+    }
+  } catch (e) {
+    console.error('[propagation] NOAA Kp fetch failed:', e.message)
+  }
+}
 
 // HamQSL XML uses compound band names; normalize them to the keys the UI expects.
 const BAND_NAME_MAP = {
@@ -16,12 +39,16 @@ export function startPropagationTimer(onData) {
   dataCallback = onData
   timer = setInterval(async () => {
     const result = await fetchPropagation()
-    dataCallback?.(result)  // always emit — includes error field if failed
+    dataCallback?.(result)
   }, 60 * 60 * 1000)
+  // Prime NOAA Kp immediately, then poll every 3 minutes
+  fetchNoaaKp()
+  kpTimer = setInterval(fetchNoaaKp, 3 * 60 * 1000)
 }
 
 export function stopPropagationTimer() {
-  if (timer) { clearInterval(timer); timer = null }
+  if (timer)   { clearInterval(timer);   timer   = null }
+  if (kpTimer) { clearInterval(kpTimer); kpTimer = null }
 }
 
 export async function fetchPropagation() {
@@ -91,15 +118,19 @@ function parseXml(xml) {
 
   const sfi = solardata['solarflux']
   const kindex = solardata['kindex']
+  const kpSource = realTimeKp !== null ? 'live' : '3h'
+  const kpEffective = realTimeKp !== null ? realTimeKp : parseFloat(kindex)
 
   return {
     sfi,
     aindex: solardata['aindex'],
     kindex,
+    kp: kpEffective,
+    kpSource,
     xray: solardata['xray'],
     sunspots: solardata['sunspots'],
     bands: bandMap,
-    muf: deriveMuf(sfi, kindex),
+    muf: deriveMuf(sfi, kpEffective),
     updated: new Date().toISOString()
   }
 }

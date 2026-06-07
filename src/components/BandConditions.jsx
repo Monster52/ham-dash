@@ -110,7 +110,10 @@ export default function BandConditions() {
         {[
           ['SFI', propData?.sfi, null],
           ['A',   propData?.aindex, null],
-          ['K',   propData?.kindex, kColor(propData?.kindex)],
+          ['K',   propData?.kp != null
+                    ? `${propData.kp} [${propData.kpSource}]`
+                    : propData?.kindex,
+                  kColor(propData?.kp ?? propData?.kindex)],
           ['X',   propData?.xray, null],
           ['SN',  propData?.sunspots, null],
         ].map(([label, value, color]) => (
