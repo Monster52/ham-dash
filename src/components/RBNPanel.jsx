@@ -47,9 +47,12 @@ function ageLabel(minAgo) {
   return `${Math.round(minAgo / 60)}h ago`
 }
 
-function formatTime(spotTime) {
-  if (!spotTime) return '----z'
-  try { return new Date(spotTime).toISOString().slice(11, 15) + 'z' } catch { return '----z' }
+function potaAgeLabel(minAgo) {
+  if (minAgo == null) return '--'
+  if (minAgo < 1)   return '< 1m'
+  if (minAgo < 60)  return `${Math.round(minAgo)}m ago`
+  if (minAgo < 120) return '1h ago'
+  return `${Math.floor(minAgo / 60)}h ago`
 }
 
 // ---- Map component ----
@@ -321,7 +324,7 @@ function POTARow({ spot, idx, onClick }) {
         cursor: 'pointer',
       }}
     >
-      <span style={{ color: '#00551a' }}>{formatTime(spot.spotTime)}</span>
+      <span style={{ color: '#00551a' }}>{potaAgeLabel(spot.age_min)}</span>
       <span style={{ color: '#00ff41' }}>{spot.activator}</span>
       <span style={{ color: '#ffb000' }}>{spot.freq_mhz?.toFixed(3)}</span>
       <span style={{ color: BAND_COLORS[spot.band] || '#00ff41', fontSize: '0.6rem' }}>{spot.band}</span>
@@ -568,7 +571,7 @@ export default function RBNPanel() {
               gap: '4px', padding: '2px 8px', flexShrink: 0,
               borderBottom: '1px solid #1a3a1a'
             }}>
-              {['TIME', 'ACTIVATOR', 'FREQ', 'BAND', 'MODE', 'REF', 'PARK', 'STATE'].map(h => (
+              {['AGE', 'ACTIVATOR', 'FREQ', 'BAND', 'MODE', 'REF', 'PARK', 'STATE'].map(h => (
                 <span key={h} style={{ fontSize: '0.5rem', color: '#00441a', letterSpacing: '0.08em' }}>{h}</span>
               ))}
             </div>

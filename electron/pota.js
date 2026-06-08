@@ -36,7 +36,8 @@ function isWanted(band, mode) {
 
 function minutesSince(spotTime) {
   if (!spotTime) return 0;
-  const t = new Date(spotTime);
+  // POTA API returns Eastern Time without TZ indicator — parse as ET (-05:00)
+  const t = new Date(spotTime + '-05:00');
   if (isNaN(t.getTime())) return 0;
   return Math.max(0, Math.round((Date.now() - t.getTime()) / 60000));
 }
