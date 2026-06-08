@@ -6,6 +6,7 @@ import BandConditions from './components/BandConditions'
 import QSOLog from './components/QSOLog'
 import RBNPanel from './components/RBNPanel'
 import SKCCPanel from './components/SKCCPanel'
+import RBNSpotList from './components/RBNSpotList'
 import SettingsPanel from './components/SettingsPanel'
 
 export default function App() {
@@ -18,7 +19,7 @@ export default function App() {
         height: '100vh',
         background: '#0a0a0a',
         display: 'grid',
-        gridTemplateRows: 'auto 1fr 200px 220px',
+        gridTemplateRows: 'auto 1fr 220px 220px',
         gridTemplateColumns: '1fr',
         overflow: 'hidden',
         fontFamily: '"Share Tech Mono", monospace'
@@ -58,9 +59,17 @@ export default function App() {
         </div>
       </div>
 
-      {/* SKCC Skimmer — full width, 200px */}
-      <div style={{ padding: '3px 6px', overflow: 'hidden', minHeight: 0 }}>
-        <SKCCPanel />
+      {/* Middle row — SKCC left 50%, RBN spot list right 50% */}
+      <div style={{
+        display: 'flex', flexDirection: 'row', gap: '6px',
+        padding: '3px 6px', overflow: 'hidden', minHeight: 0,
+      }}>
+        <div style={{ flex: 1, overflow: 'hidden', minHeight: 0 }}>
+          <SKCCPanel />
+        </div>
+        <div style={{ flex: 1, overflow: 'hidden', minHeight: 0 }}>
+          <RBNSpotList />
+        </div>
       </div>
 
       {/* Bottom: QSO Log fixed 220px */}
