@@ -146,9 +146,9 @@ export default function BandConditions() {
 
       {/* NVIS band badges */}
       <div style={{ borderTop: '1px solid #111f11', paddingTop: '4px' }}>
-        <div style={{ fontSize: '0.52rem', color: '#00441a', marginBottom: '2px' }}>NVIS</div>
+        <div title="Regional <500km — based on foF2" style={{ fontSize: '0.52rem', color: '#00441a', marginBottom: '2px', cursor: 'help' }}>NVIS</div>
         <div style={{ display: 'flex', gap: '4px', flexWrap: 'nowrap' }}>
-          {['160m', '80m', '40m', '30m'].map(band => (
+          {['80m', '40m', '20m', '15m', '10m'].map(band => (
             <BandBadge key={band} band={band} status={nvisBands?.[band]} />
           ))}
         </div>
@@ -156,9 +156,9 @@ export default function BandConditions() {
 
       {/* DX band badges */}
       <div style={{ borderTop: '1px solid #111f11', paddingTop: '4px' }}>
-        <div style={{ fontSize: '0.52rem', color: '#00441a', marginBottom: '2px' }}>DX</div>
+        <div title="Long distance skip — based on MUF" style={{ fontSize: '0.52rem', color: '#00441a', marginBottom: '2px', cursor: 'help' }}>DX</div>
         <div style={{ display: 'flex', gap: '4px', flexWrap: 'nowrap' }}>
-          {['20m', '17m', '15m', '10m'].map(band => (
+          {['80m', '40m', '20m', '15m', '10m'].map(band => (
             <BandBadge key={band} band={band} status={dxBands?.[band]} />
           ))}
         </div>

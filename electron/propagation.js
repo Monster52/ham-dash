@@ -169,11 +169,11 @@ function deriveBandStatus(fof2, muf) {
   const nvis = {}
   const dx   = {}
 
-  for (const [band, open, marg] of [['160m', 1.8, 1.0], ['80m', 3.5, 2.5], ['40m', 7.0, 5.0], ['30m', 10.0, 7.5]]) {
+  for (const [band, open, marg] of [['80m', 3.5, 2.5], ['40m', 7.0, 5.5], ['20m', 14.0, 11.0], ['15m', 21.0, 17.0], ['10m', 28.0, 24.0]]) {
     nvis[band] = fof2 == null ? null : fof2 >= open ? 'OPEN' : fof2 >= marg ? 'MARG' : 'CLSD'
   }
 
-  for (const [band, open, marg] of [['20m', 14.0, 11.0], ['17m', 18.0, 14.5], ['15m', 21.0, 18.0], ['10m', 28.0, 23.0]]) {
+  for (const [band, open, marg] of [['80m', 3.5, 2.5], ['40m', 7.0, 5.0], ['20m', 14.0, 12.0], ['15m', 21.0, 18.0], ['10m', 28.0, 24.0]]) {
     dx[band] = muf == null ? null : muf >= open ? 'OPEN' : muf >= marg ? 'MARG' : 'CLSD'
   }
 
