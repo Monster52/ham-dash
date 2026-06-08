@@ -4,17 +4,20 @@ import https from 'https'
 let hamqslTimer  = null
 let ionoTimer    = null
 let noaaTimer    = null
+let sunTimer     = null
 let dataCallback = null
 
 let cachedIonoResult = null  // { fof2, mufd, stationCode, stationName, distKm, ageMin, cs, score, adjusted, fetchedAt }
 let cachedNoaaResult = null  // { kp, sfi, fetchedAt }
 let lastHamQSLData   = null  // { sfi, aindex, kindex, xray, sunspots, bands, updated }
+let sunData          = null  // sunrise-sunset.org results object
 
-const KC2G_URL   = 'https://prop.kc2g.com/api/stations.json'
-const NOAA_ALERT = 'https://services.swpc.noaa.gov/products/noaa-geophysical-alert.json'
-const NOAA_KP    = 'https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json'
-const HOME_LAT   =  30.35
-const HOME_LON   = -89.15
+const HOME_LAT    =  30.35
+const HOME_LON    = -89.15
+const KC2G_URL    = 'https://prop.kc2g.com/api/stations.json'
+const NOAA_ALERT  = 'https://services.swpc.noaa.gov/products/noaa-geophysical-alert.json'
+const NOAA_KP     = 'https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json'
+const SUNRISE_URL = `https://api.sunrise-sunset.org/json?lat=${HOME_LAT}&lng=${HOME_LON}&formatted=0`
 
 const BAND_NAME_MAP = {
   '80m-40m': ['80m', '40m'],
@@ -154,6 +157,45 @@ async function fetchNoaaData() {
   }
 }
 
+async function fetchSunriseSunset() {
+  try {
+    const { body, status } = await httpGet(SUNRISE_URL)
+    if (status !== 200) {
+      console.error('[propagation] sunrise-sunset HTTP', status)
+      return
+    }
+    const json = JSON.parse(body)
+    if (json.status !== 'OK' || !json.results) {
+      console.error('[propagation] sunrise-sunset bad response:', json.status)
+      return
+    }
+    sunData = json.results
+    const r = sunData
+    console.log('[propagation] sunrise data:', {
+      civil_dawn: new Date(r.civil_twilight_begin).toISOString(),
+      sunrise:    new Date(r.sunrise).toISOString(),
+      solar_noon: new Date(r.solar_noon).toISOString(),
+      sunset:     new Date(r.sunset).toISOString(),
+      civil_dusk: new Date(r.civil_twilight_end).toISOString(),
+    })
+  } catch (e) {
+    console.error('[propagation] sunrise-sunset fetch failed:', e.message)
+  }
+}
+
+function scheduleSunriseFetch() {
+  if (sunTimer) { clearTimeout(sunTimer); sunTimer = null }
+  const now = new Date()
+  const nextMidnight = new Date(Date.UTC(
+    now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1
+  ))
+  const msUntilMidnight = nextMidnight.getTime() - now.getTime()
+  sunTimer = setTimeout(async () => {
+    await fetchSunriseSunset()
+    sunTimer = setInterval(fetchSunriseSunset, 24 * 60 * 60 * 1000)
+  }, msUntilMidnight)
+}
+
 function selectActiveSource() {
   if (cachedIonoResult && cachedIonoResult.score >= 0.25) return 'ionosonde'
   if (cachedNoaaResult) {
@@ -180,16 +222,45 @@ function deriveBandStatus(fof2, muf) {
   return { nvis, dx }
 }
 
-function calcDayFactor(localSolarHour) {
+function calcDayFactor() {
+  const now    = new Date()
+  const nowMin = now.getUTCHours() * 60 + now.getUTCMinutes()
+
+  if (sunData) {
+    const dawnMin   = new Date(sunData.civil_twilight_begin).getUTCHours() * 60 + new Date(sunData.civil_twilight_begin).getUTCMinutes()
+    const noonMin   = new Date(sunData.solar_noon).getUTCHours() * 60            + new Date(sunData.solar_noon).getUTCMinutes()
+    const sunsetMin = new Date(sunData.sunset).getUTCHours() * 60                + new Date(sunData.sunset).getUTCMinutes()
+    const duskMin   = new Date(sunData.civil_twilight_end).getUTCHours() * 60    + new Date(sunData.civil_twilight_end).getUTCMinutes()
+
+    let dayFactor
+    if (nowMin < dawnMin) {
+      dayFactor = 0.2 + 0.05 * (nowMin / Math.max(dawnMin, 1))
+    } else if (nowMin < noonMin) {
+      const progress = (nowMin - dawnMin) / Math.max(noonMin - dawnMin, 1)
+      dayFactor = 0.2 + 0.8 * Math.pow(progress, 0.7)
+    } else if (nowMin < sunsetMin + 60) {
+      const progress = (nowMin - noonMin) / Math.max(sunsetMin + 60 - noonMin, 1)
+      dayFactor = 1.0 - 0.65 * Math.pow(progress, 1.5)
+    } else if (nowMin < duskMin + 60) {
+      const progress = (nowMin - sunsetMin - 60) / 120
+      dayFactor = 0.35 - 0.15 * Math.min(progress, 1.0)
+    } else {
+      dayFactor = 0.2
+    }
+    return Math.max(0.2, Math.min(1.0, dayFactor))
+  }
+
+  // Mathematical fallback — used when sunrise data unavailable
+  const decimalHour    = now.getUTCHours() + now.getUTCMinutes() / 60
+  const localSolarHour = ((decimalHour + HOME_LON / 15) + 24) % 24
   if (localSolarHour >= 6 && localSolarHour <= 20) {
     const peak   = 14.0
     const spread = localSolarHour < peak ? 8.0 : 12.0
     return Math.max(0.35, Math.exp(-0.5 * Math.pow((localSolarHour - peak) / spread, 2)))
-  } else {
-    const nightHour        = localSolarHour < 6 ? localSolarHour + 24 : localSolarHour
-    const distFromMidnight = Math.abs(nightHour - 24)
-    return 0.25 + (distFromMidnight / 18) * 0.10
   }
+  const nightHour        = localSolarHour < 6 ? localSolarHour + 24 : localSolarHour
+  const distFromMidnight = Math.abs(nightHour - 24)
+  return 0.25 + (distFromMidnight / 18) * 0.10
 }
 
 function deriveMuf(sfi, kindex) {
@@ -197,12 +268,7 @@ function deriveMuf(sfi, kindex) {
   const kNum   = parseFloat(kindex)
   if (isNaN(sfiNum) || isNaN(kNum)) return null
 
-  const utcHour        = new Date().getUTCHours()
-  const utcMin         = new Date().getUTCMinutes()
-  const decimalHour    = utcHour + utcMin / 60
-  const localSolarHour = ((decimalHour + HOME_LON / 15) + 24) % 24
-
-  const dayFactor    = calcDayFactor(localSolarHour)
+  const dayFactor    = calcDayFactor()
   const geoFactor    = Math.max(0.5, 1 - (kNum * 0.06))
   const month        = new Date().getUTCMonth()
   const seasonFactor = 1 + 0.2 * Math.cos((month - 6) * Math.PI / 6)
@@ -276,6 +342,11 @@ function emitUpdate() {
     },
     mufSource, mufLabel, mufDetail, mufAdjusted, mufAge,
     nvisBands, dxBands,
+    sunTimes: sunData ? {
+      sunrise:   sunData.sunrise,
+      solarNoon: sunData.solar_noon,
+      sunset:    sunData.sunset,
+    } : null,
     updated,
   }
 }
@@ -307,6 +378,7 @@ async function fetchHamQSL() {
 
 export function startPropagationTimer(onData) {
   dataCallback = onData
+  scheduleSunriseFetch()
 
   hamqslTimer = setInterval(async () => {
     await fetchHamQSL()
@@ -331,10 +403,11 @@ export function stopPropagationTimer() {
   if (hamqslTimer) { clearInterval(hamqslTimer); hamqslTimer = null }
   if (ionoTimer)   { clearInterval(ionoTimer);   ionoTimer   = null }
   if (noaaTimer)   { clearInterval(noaaTimer);   noaaTimer   = null }
+  if (sunTimer)    { clearTimeout(sunTimer);      sunTimer    = null }
 }
 
 export async function fetchPropagation() {
-  await Promise.allSettled([fetchHamQSL(), fetchKC2GStations(), fetchNoaaData()])
+  await Promise.allSettled([fetchHamQSL(), fetchKC2GStations(), fetchNoaaData(), fetchSunriseSunset()])
   console.log('[propagation] init complete:', {
     hamqsl:      lastHamQSLData ? 'ok' : 'failed',
     noaa:        cachedNoaaResult ? 'ok Kp=' + cachedNoaaResult.kp : 'failed',

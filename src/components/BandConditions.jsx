@@ -38,6 +38,10 @@ function BandBadge({ band, status }) {
   )
 }
 
+function utcHHMM(iso) {
+  return new Date(iso).toISOString().slice(11, 16) + 'z'
+}
+
 export default function BandConditions() {
   const pushed = useIPCEvent(window.api?.propagation?.onData, null)
   const [pulled, setPulled] = useState(null)
@@ -57,6 +61,7 @@ export default function BandConditions() {
   const mufAdjusted = propData?.mufAdjusted
   const nvisBands   = propData?.nvisBands
   const dxBands     = propData?.dxBands
+  const sunTimes    = propData?.sunTimes
 
   const handleRefresh = async () => {
     setRefreshing(true)
@@ -164,12 +169,19 @@ export default function BandConditions() {
         </div>
       </div>
 
-      {/* Source indicator */}
+      {/* Source indicator + sun times */}
       <div style={{ fontSize: '0.48rem', color: '#00441a', padding: '1px 4px', borderTop: '1px solid #111f11' }}>
-        {mufSource === 'ionosonde' && `ionosonde: ${propData?.muf?.stationName || ''}`}
-        {mufSource === 'noaa'      && 'NOAA real-time Kp'}
-        {mufSource === 'empirical' && 'empirical estimate (HamQSL)'}
-        {!mufSource                && 'no data'}
+        <div>
+          {mufSource === 'ionosonde' && `ionosonde: ${propData?.muf?.stationName || ''}`}
+          {mufSource === 'noaa'      && 'NOAA real-time Kp'}
+          {mufSource === 'empirical' && 'empirical estimate (HamQSL)'}
+          {!mufSource                && 'no data'}
+        </div>
+        {sunTimes && (
+          <div style={{ marginTop: '1px', color: '#005522' }}>
+            {`☀ Rise: ${utcHHMM(sunTimes.sunrise)}  Noon: ${utcHHMM(sunTimes.solarNoon)}  Set: ${utcHHMM(sunTimes.sunset)}`}
+          </div>
+        )}
       </div>
     </div>
   )
