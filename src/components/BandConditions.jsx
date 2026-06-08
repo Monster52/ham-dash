@@ -165,7 +165,7 @@ export default function BandConditions() {
       </div>
 
       {/* Source indicator */}
-      <div style={{ fontSize: '0.52rem', color: '#00441a', paddingTop: '3px', borderTop: '1px solid #111f11' }}>
+      <div style={{ fontSize: '0.48rem', color: '#00441a', padding: '1px 4px', borderTop: '1px solid #111f11' }}>
         {mufSource === 'ionosonde' && `ionosonde: ${propData?.muf?.stationName || ''}`}
         {mufSource === 'noaa'      && 'NOAA real-time Kp'}
         {mufSource === 'empirical' && 'empirical estimate (HamQSL)'}

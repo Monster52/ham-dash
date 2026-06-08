@@ -36,13 +36,13 @@ function prefillCallsign(spot) {
 }
 
 const hdr = {
-  fontSize: '0.58rem', color: '#00551a', padding: '1px 0',
+  fontSize: '0.5rem', color: '#00551a', padding: '1px 0',
   borderBottom: '1px solid #0d1a0d', userSelect: 'none',
 }
 
 function ColHeaders({ cols, labels }) {
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: cols, gap: '4px', padding: '1px 6px' }}>
+    <div style={{ display: 'grid', gridTemplateColumns: cols, gap: '4px', padding: '1px 4px' }}>
       {labels.map(l => <span key={l} style={hdr}>{l}</span>)}
     </div>
   )
@@ -60,7 +60,7 @@ function SkedRow({ spot, idx }) {
       onMouseLeave={() => setHovered(false)}
       style={{
         display: 'grid', gridTemplateColumns: SKED_COLS, gap: '4px',
-        padding: '1px 6px', fontSize: '0.68rem',
+        padding: '1px 4px', fontSize: '0.65rem',
         fontFamily: '"Share Tech Mono", monospace',
         background: hovered ? 'rgba(0,255,65,0.05)' : idx % 2 === 0 ? 'transparent' : 'rgba(0,255,65,0.02)',
         borderBottom: '1px solid #0d1a0d',
@@ -108,7 +108,7 @@ function RBNRow({ spot, idx }) {
       onMouseLeave={() => setHovered(false)}
       style={{
         display: 'grid', gridTemplateColumns: RBN_COLS, gap: '4px',
-        padding: '1px 6px', fontSize: '0.68rem',
+        padding: '1px 4px', fontSize: '0.65rem',
         fontFamily: '"Share Tech Mono", monospace',
         background: hovered ? 'rgba(0,255,65,0.05)' : idx % 2 === 0 ? 'transparent' : 'rgba(0,255,65,0.02)',
         borderBottom: '1px solid #0d1a0d',
@@ -175,7 +175,7 @@ export default function SKCCPanel() {
   }, [rbnData])
 
   const tabStyle = (active) => ({
-    padding: '2px 10px', fontSize: '0.62rem', cursor: 'pointer',
+    padding: '1px 8px', fontSize: '0.6rem', cursor: 'pointer',
     fontFamily: '"Share Tech Mono", monospace', letterSpacing: '0.08em',
     background: active ? 'rgba(0,255,65,0.1)' : 'transparent',
     border: `1px solid ${active ? '#00ff41' : '#1a3a1a'}`,
@@ -191,7 +191,7 @@ export default function SKCCPanel() {
       display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden',
     }}>
       {/* Header row */}
-      <div style={{ display: 'flex', alignItems: 'center', padding: '3px 6px', gap: '8px', flexShrink: 0, borderBottom: '1px solid #111f11' }}>
+      <div style={{ display: 'flex', alignItems: 'center', padding: '2px 6px', gap: '8px', flexShrink: 0, borderBottom: '1px solid #111f11' }}>
         <button style={tabStyle(activeTab === 'sked')} onClick={() => setActiveTab('sked')}>SKED PAGE</button>
         <button style={tabStyle(activeTab === 'rbn')}  onClick={() => setActiveTab('rbn')}>RBN SPOTS</button>
         <span style={{ fontSize: '0.58rem', color: '#00551a', marginLeft: '4px' }}>
@@ -209,7 +209,7 @@ export default function SKCCPanel() {
         {activeTab === 'sked' ? (
           <>
             <ColHeaders cols={SKED_COLS} labels={['TIME', 'CALLSIGN', 'SKCC#', 'AWD', 'NAME', 'SPC', 'STATUS', 'YOU NEED', 'THEY NEED']} />
-            <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
+            <div style={{ overflowY: 'auto', maxHeight: '100px' }}>
               {skedData.length === 0
                 ? <div style={{ padding: '12px 6px', fontSize: '0.65rem', color: '#335533' }}>
                     SKCC SKED PAGE OFFLINE — skimmer connecting...
@@ -221,7 +221,7 @@ export default function SKCCPanel() {
         ) : (
           <>
             <ColHeaders cols={RBN_COLS} labels={['TIME', 'CALLSIGN', 'SKCC#', 'AWD', 'NAME', 'SPC', 'FREQ', 'SPOTTER', 'DIST', 'SNR', 'YOU NEED']} />
-            <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
+            <div style={{ overflowY: 'auto', maxHeight: '100px' }}>
               {rbnData.length === 0
                 ? <div style={{ padding: '12px 6px', fontSize: '0.65rem', color: '#335533' }}>
                     NO SKCC SPOTS — band may be closed or no members active
@@ -235,8 +235,8 @@ export default function SKCCPanel() {
 
       {/* Stats bar */}
       <div style={{
-        display: 'flex', gap: '12px', padding: '2px 8px',
-        borderTop: '1px solid #111f11', fontSize: '0.58rem', color: '#00551a', flexShrink: 0,
+        display: 'flex', gap: '10px', padding: '2px 6px',
+        borderTop: '1px solid #111f11', fontSize: '0.55rem', color: '#00551a', flexShrink: 0,
       }}>
         {activeTab === 'sked' ? (
           <>

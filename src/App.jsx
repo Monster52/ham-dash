@@ -31,7 +31,7 @@ export default function App() {
         style={{
           display: 'grid',
           gridTemplateColumns: '280px 460px 1fr',
-          gridTemplateRows: '1fr 220px',
+          gridTemplateRows: '1fr 160px',
           gap: '6px',
           padding: '6px 6px 3px 6px',
           overflow: 'hidden',
