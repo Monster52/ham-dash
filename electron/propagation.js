@@ -67,8 +67,12 @@ async function fetchKC2GStations() {
     const scored = []
     for (const s of stations) {
       if (!s.station?.latitude || !s.station?.longitude) continue
-      const lonSigned = s.station.longitude > 180 ? s.station.longitude - 360 : s.station.longitude
-      const distKm = haversineKm(HOME_LAT, HOME_LON, s.station.latitude, lonSigned)
+      const stationLat = parseFloat(s.station.latitude)
+      const lonSigned  = s.station.longitude > 180 ? s.station.longitude - 360 : s.station.longitude
+      if (HOME_LAT > 0 && stationLat < -15) continue
+      const lonDiff = Math.abs(lonSigned - HOME_LON)
+      if (lonDiff > 120) continue
+      const distKm = haversineKm(HOME_LAT, HOME_LON, stationLat, lonSigned)
       const score = scoreStation(s, distKm, now)
       if (score < 0) continue
       scored.push({ s, distKm, score })
@@ -94,25 +98,14 @@ async function fetchKC2GStations() {
       || best.station.name?.split(/[\s,]/)[0]
       || 'IONO'
 
-    let fof2 = best.fof2
-    let mufd = best.mufd
-    let adjusted = false
-    if (daytime && best.station.latitude > 40.35) {
-      const latDiff = best.station.latitude - HOME_LAT
-      const correction = 1 + (latDiff / 100)
-      fof2 = fof2 / correction
-      mufd = mufd / correction
-      adjusted = true
-    }
-
     cachedIonoResult = {
-      fof2, mufd, stationCode,
+      fof2: best.fof2, mufd: best.mufd, stationCode,
       stationName: best.station.name || stationCode,
-      distKm, ageMin, cs: best.cs, score, adjusted,
+      distKm, ageMin, cs: best.cs, score, adjusted: false,
       fetchedAt: now,
     }
 
-    console.log(`[propagation] KC2G: ${stationCode} (${best.station.name}, ${distKm}km, cs:${best.cs}, score:${score.toFixed(3)}${adjusted ? ', lat-adj' : ''})`)
+    console.log(`[propagation] KC2G: ${stationCode} (${best.station.name}, ${distKm}km, cs:${best.cs}, score:${score.toFixed(3)})`)
   } catch (e) {
     console.error('[propagation] KC2G fetch failed:', e.message)
   }
@@ -274,7 +267,7 @@ function deriveMuf(sfi, kindex) {
   const seasonFactor = 1 + 0.2 * Math.cos((month - 6) * Math.PI / 6)
 
   const foF2 = (0.0245 * sfiNum + 3.8) * dayFactor * geoFactor * seasonFactor
-  const muf  = foF2 * 4.5
+  const muf  = foF2 * 4.0
 
   const foF2c = Math.round(Math.max(2, Math.min(foF2, 15)) * 10) / 10
   const mufc  = Math.round(Math.max(4, Math.min(muf,  55)) * 10) / 10
