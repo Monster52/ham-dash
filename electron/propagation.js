@@ -237,7 +237,7 @@ function calcDayFactor() {
       dayFactor = 0.2 + 0.05 * (nowMin / Math.max(dawnMin, 1))
     } else if (nowMin < noonMin) {
       const progress = (nowMin - dawnMin) / Math.max(noonMin - dawnMin, 1)
-      dayFactor = 0.2 + 0.8 * Math.pow(progress, 0.7)
+      dayFactor = 0.2 + 0.8 * Math.pow(progress, 0.45)
     } else if (nowMin < sunsetMin + 60) {
       const progress = (nowMin - noonMin) / Math.max(sunsetMin + 60 - noonMin, 1)
       dayFactor = 1.0 - 0.65 * Math.pow(progress, 1.5)
@@ -273,7 +273,7 @@ function deriveMuf(sfi, kindex) {
   const month        = new Date().getUTCMonth()
   const seasonFactor = 1 + 0.2 * Math.cos((month - 6) * Math.PI / 6)
 
-  const foF2 = (0.0179 * sfiNum + 2.7) * dayFactor * geoFactor * seasonFactor
+  const foF2 = (0.0215 * sfiNum + 3.2) * dayFactor * geoFactor * seasonFactor
   const muf  = foF2 * 3.8
 
   const foF2c = Math.round(Math.max(2, Math.min(foF2, 15)) * 10) / 10
