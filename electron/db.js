@@ -1,7 +1,36 @@
 import Database from 'better-sqlite3'
-import { mkdirSync } from 'fs'
+import { mkdirSync, appendFileSync } from 'fs'
 import { join } from 'path'
 import { homedir } from 'os'
+
+const SKCCLOGGER_ADI = '/home/church/Desktop/SKCCLogger_Linux_64-Bit/Logs/logfile.adi'
+
+function adifField(tag, value) {
+  const s = String(value ?? '')
+  return `<${tag}:${s.length}>${s}\n`
+}
+
+function appendSkccAdif(qso, band) {
+  try {
+    const record = [
+      adifField('CALL',     qso.callsign),
+      adifField('QSO_DATE', (qso.date_on || '').replace(/-/g, '')),
+      adifField('TIME_ON',  (qso.time_on || '').replace(':', '').slice(0, 4)),
+      adifField('BAND',     band),
+      adifField('FREQ',     qso.freq),
+      adifField('MODE',     qso.mode),
+      adifField('RST_SENT', qso.rst_sent || '599'),
+      adifField('RST_RCVD', qso.rst_rcvd || '599'),
+      adifField('SRX',      qso.skcc_nr),
+      ...(qso.notes ? [adifField('COMMENT', qso.notes)] : []),
+      '<EOR>\n\n',
+    ].join('')
+    appendFileSync(SKCCLOGGER_ADI, record, 'utf8')
+    console.log(`[db] appended SKCC ADIF for ${qso.callsign} #${qso.skcc_nr}`)
+  } catch (e) {
+    console.error('[db] SKCC ADIF append failed:', e.message)
+  }
+}
 
 const DB_DIR = join(homedir(), 'fac-shack', 'log')
 const DB_PATH = join(DB_DIR, 'facshack.db')
@@ -61,7 +90,7 @@ export function insertQso(qso) {
     VALUES
       (@callsign, @freq, @band, @mode, @rst_sent, @rst_rcvd, @date_on, @time_on, @skcc_nr, @notes, @source)
   `)
-  const result = stmt.run({
+  const normalized = {
     callsign: (qso.callsign || '').toUpperCase(),
     freq:     qso.freq != null ? parseFloat(qso.freq) : null,
     band,
@@ -73,7 +102,9 @@ export function insertQso(qso) {
     skcc_nr:  qso.skcc_nr  || null,
     notes:    qso.notes    || null,
     source:   qso.source   || 'manual'
-  })
+  }
+  const result = stmt.run(normalized)
+  if (normalized.skcc_nr) appendSkccAdif(normalized, band)
   return { id: result.lastInsertRowid }
 }
 
