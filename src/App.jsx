@@ -6,7 +6,6 @@ import BandConditions from './components/BandConditions'
 import QSOLog from './components/QSOLog'
 import RBNPanel from './components/RBNPanel'
 import SKCCPanel from './components/SKCCPanel'
-import RBNSpotList from './components/RBNSpotList'
 import SettingsPanel from './components/SettingsPanel'
 
 export default function App() {
@@ -19,7 +18,7 @@ export default function App() {
         height: '100vh',
         background: '#0a0a0a',
         display: 'grid',
-        gridTemplateRows: 'auto 1fr 220px 220px',
+        gridTemplateRows: 'auto 1fr 220px',
         gridTemplateColumns: '1fr',
         overflow: 'hidden',
         fontFamily: '"Share Tech Mono", monospace'
@@ -27,24 +26,25 @@ export default function App() {
     >
       <Header onSettings={() => setShowSettings(true)} />
 
-      {/* Top section — 3 columns, fills all space above QSO log */}
+      {/* Content area — 2D grid: cols [280px 460px 1fr], rows [1fr 220px] */}
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: '280px 320px 1fr',
+          gridTemplateColumns: '280px 460px 1fr',
+          gridTemplateRows: '1fr 220px',
           gap: '6px',
           padding: '6px 6px 3px 6px',
           overflow: 'hidden',
-          minHeight: 0
+          minHeight: 0,
         }}
       >
-        {/* Col 1: Rig Control */}
-        <div style={{ overflow: 'hidden', minHeight: 0 }}>
+        {/* Col 1 row 1: Rig Control */}
+        <div style={{ gridColumn: 1, gridRow: 1, overflow: 'hidden', minHeight: 0 }}>
           <RigPanel />
         </div>
 
-        {/* Col 2: Keyer (grows) + Band Conditions (fixed, never shrinks) */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', overflow: 'hidden', minHeight: 0 }}>
+        {/* Col 2 row 1: Keyer + Band Conditions */}
+        <div style={{ gridColumn: 2, gridRow: 1, display: 'flex', flexDirection: 'column', gap: '6px', overflow: 'hidden', minHeight: 0 }}>
           <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
             <KeyerPanel />
           </div>
@@ -53,22 +53,14 @@ export default function App() {
           </div>
         </div>
 
-        {/* Col 3: RBN Panel */}
-        <div style={{ overflow: 'hidden', minHeight: 0 }}>
+        {/* Col 3 rows 1–2: RBN Panel spans full height */}
+        <div style={{ gridColumn: 3, gridRow: '1 / 3', overflow: 'hidden', minHeight: 0 }}>
           <RBNPanel />
         </div>
-      </div>
 
-      {/* Middle row — SKCC left 50%, RBN spot list right 50% */}
-      <div style={{
-        display: 'flex', flexDirection: 'row', gap: '6px',
-        padding: '3px 6px', overflow: 'hidden', minHeight: 0,
-      }}>
-        <div style={{ flex: 1, overflow: 'hidden', minHeight: 0 }}>
+        {/* Cols 1–2 row 2: SKCC Panel */}
+        <div style={{ gridColumn: '1 / 3', gridRow: 2, overflow: 'hidden', minHeight: 0 }}>
           <SKCCPanel />
-        </div>
-        <div style={{ flex: 1, overflow: 'hidden', minHeight: 0 }}>
-          <RBNSpotList />
         </div>
       </div>
 

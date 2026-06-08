@@ -356,6 +356,12 @@ export default function RBNPanel() {
   const [potaLastUpdate, setPotaLastUpdate] = useState(null)
   const [activeTab, setActiveTab]       = useState('rbn')
   const [refreshing, setRefreshing]     = useState(false)
+  const [tick, setTick]                 = useState(0)
+
+  useEffect(() => {
+    const id = setInterval(() => setTick(t => t + 1), 30000)
+    return () => clearInterval(id)
+  }, [])
 
   useEffect(() => {
     window.api?.rbn?.get().then(data => { if (data) setSpots(data) })
@@ -489,8 +495,37 @@ export default function RBNPanel() {
         ))}
       </div>
 
-      {/* Below-map content — POTA tab only; RBN spot list lives in RBNSpotList panel */}
-      {activeTab === 'pota' && (
+      {/* Below-map content — switches by tab */}
+      {activeTab === 'rbn' ? (
+        <>
+          {spots.length > 0 && <StatsRow spots={spots} />}
+          {spots.length === 0 && (
+            <div style={{
+              textAlign: 'center', color: '#335533', fontSize: '0.72rem',
+              letterSpacing: '0.1em', padding: '8px', flexShrink: 0
+            }}>
+              NO SPOTS — RBN only logs KJ5NUJ when actively TX&apos;ing CW/RTTY
+            </div>
+          )}
+          {spots.length > 0 && (
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: '52px 90px 52px 70px 44px 44px 44px 1fr',
+              gap: '4px', padding: '2px 8px', flexShrink: 0,
+              borderBottom: '1px solid #1a3a1a'
+            }}>
+              {['TIME', 'SPOTTER', 'GRID', 'FREQ', 'BAND', 'SNR', 'AGE', 'DIST'].map(h => (
+                <span key={h} style={{ fontSize: '0.5rem', color: '#00441a', letterSpacing: '0.08em' }}>{h}</span>
+              ))}
+            </div>
+          )}
+          <div style={{ overflowY: 'auto', flex: '1 1 0', maxHeight: '200px', paddingBottom: '4px' }}>
+            {spots.slice(0, 10).map((s, i) => (
+              <SpotRow key={s.id} spot={s} idx={i} tick={tick} />
+            ))}
+          </div>
+        </>
+      ) : (
         <>
           {/* Filter toggles */}
           <div style={{

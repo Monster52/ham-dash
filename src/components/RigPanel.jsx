@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react'
 import { useIPCEvent } from '../hooks/useIPC'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
 
-const MODES = ['CW', 'USB', 'LSB', 'AM', 'FM']
+const MODES = ['CW', 'USB', 'LSB', 'AM']
 const STEPS = [100, 1000, 10000, 100000]
 const STEP_LABELS = ['100Hz', '1kHz', '10kHz', '100kHz']
 
