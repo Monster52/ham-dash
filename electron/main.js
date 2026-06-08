@@ -12,6 +12,7 @@ import { exportAdif } from './adif-export.js'
 import { initRBN, getRBNSpots } from './rbn.js'
 import { initPOTA } from './pota.js'
 import { initCallsignLookup } from './callsign.js'
+import { initSKCCSkimmer } from './skcc-skimmer.js'
 
 const store = new Store({
   defaults: {
@@ -113,6 +114,7 @@ function initHardware() {
   initRBN(mainWindow)
   initPOTA(mainWindow)
   initCallsignLookup()
+  initSKCCSkimmer(mainWindow)
 
   startPropagationTimer((data) => {
     lastPropagationData = data

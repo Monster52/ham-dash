@@ -5,6 +5,7 @@ import KeyerPanel from './components/KeyerPanel'
 import BandConditions from './components/BandConditions'
 import QSOLog from './components/QSOLog'
 import RBNPanel from './components/RBNPanel'
+import SKCCPanel from './components/SKCCPanel'
 import SettingsPanel from './components/SettingsPanel'
 
 export default function App() {
@@ -17,7 +18,7 @@ export default function App() {
         height: '100vh',
         background: '#0a0a0a',
         display: 'grid',
-        gridTemplateRows: 'auto 1fr 220px',
+        gridTemplateRows: 'auto 1fr 200px 220px',
         gridTemplateColumns: '1fr',
         overflow: 'hidden',
         fontFamily: '"Share Tech Mono", monospace'
@@ -55,6 +56,11 @@ export default function App() {
         <div style={{ overflow: 'hidden', minHeight: 0 }}>
           <RBNPanel />
         </div>
+      </div>
+
+      {/* SKCC Skimmer — full width, 200px */}
+      <div style={{ padding: '3px 6px', overflow: 'hidden', minHeight: 0 }}>
+        <SKCCPanel />
       </div>
 
       {/* Bottom: QSO Log fixed 220px */}

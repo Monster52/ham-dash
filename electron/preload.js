@@ -89,6 +89,22 @@ const api = {
     stats:  ()        => ipcRenderer.invoke('qso:stats')
   },
 
+  // SKCC Skimmer
+  skcc: {
+    getSked: () => ipcRenderer.invoke('skcc:getSked'),
+    getRbn:  () => ipcRenderer.invoke('skcc:getRbn'),
+    onSked: (cb) => {
+      const handler = (_, data) => cb(data)
+      ipcRenderer.on('skcc:sked', handler)
+      return () => ipcRenderer.removeListener('skcc:sked', handler)
+    },
+    onRbn: (cb) => {
+      const handler = (_, data) => cb(data)
+      ipcRenderer.on('skcc:rbn', handler)
+      return () => ipcRenderer.removeListener('skcc:rbn', handler)
+    },
+  },
+
   // Callsign lookup
   callsign: {
     lookup: (call) => ipcRenderer.invoke('callsign:lookup', call)
