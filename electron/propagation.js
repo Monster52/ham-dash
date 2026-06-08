@@ -71,8 +71,9 @@ async function fetchKC2GStations() {
       const lonSigned  = s.station.longitude > 180 ? s.station.longitude - 360 : s.station.longitude
       if (HOME_LAT > 0 && stationLat < -15) continue
       const lonDiff = Math.abs(lonSigned - HOME_LON)
-      if (lonDiff > 120) continue
+      if (lonDiff > 90) continue
       const distKm = haversineKm(HOME_LAT, HOME_LON, stationLat, lonSigned)
+      if (distKm > 4000) continue
       const score = scoreStation(s, distKm, now)
       if (score < 0) continue
       scored.push({ s, distKm, score })
