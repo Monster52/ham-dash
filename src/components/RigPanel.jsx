@@ -7,14 +7,10 @@ const STEPS = [100, 1000, 10000, 100000]
 const STEP_LABELS = ['100Hz', '1kHz', '10kHz', '100kHz']
 
 function formatFreq(hz) {
-  if (!hz || hz === 0) return '000.000.00'
+  if (!hz || hz === 0) return '---.---'
   const mhz = hz / 1e6
-  const str = mhz.toFixed(6).replace('.', '')
-  // Format as XXX.XXX.XX
-  const p1 = str.slice(0, 3)
-  const p2 = str.slice(3, 6)
-  const p3 = str.slice(6, 8)
-  return `${p1}.${p2}.${p3}`
+  const [intPart, decPart] = mhz.toFixed(6).split('.')
+  return `${intPart}.${decPart.slice(0, 3)}.${decPart.slice(3, 6)}`
 }
 
 function SMeter({ value }) {
