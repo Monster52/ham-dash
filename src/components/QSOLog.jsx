@@ -4,6 +4,12 @@ import { useIPCEvent } from '../hooks/useIPC'
 const MODES = ['CW', 'SSB', 'USB', 'LSB', 'AM', 'FM', 'FT8', 'FT4', 'PSK31', 'RTTY', 'OTHER']
 const PHONE_MODES = new Set(['SSB', 'USB', 'LSB', 'AM', 'FM'])
 
+function formatFreq(mhz) {
+  if (!mhz) return '---'
+  const s = mhz.toFixed(4)
+  return s.endsWith('0') ? mhz.toFixed(3) : s
+}
+
 function utcNow() {
   const now = new Date()
   return { date: now.toISOString().slice(0, 10), time: now.toISOString().slice(11, 15) }
@@ -271,7 +277,7 @@ function QSORow({ qso, onDelete, idx }) {
     }}>
       <span style={{ color: '#00551a' }}>{(qso.time_on || '----')}Z</span>
       <span style={{ color: '#00ff41' }}>{qso.callsign}</span>
-      <span style={{ color: '#ffb000' }}>{qso.freq ? Number(qso.freq).toFixed(3) : '---'}</span>
+      <span style={{ color: '#ffb000' }}>{formatFreq(Number(qso.freq) || 0)}</span>
       <span style={{ color: '#00aa2b' }}>{qso.band || '---'}</span>
       <span style={{ color: '#00aa2b' }}>{qso.mode || '---'}</span>
       <span style={{ color: '#00551a' }}>{qso.rst_sent}/{qso.rst_rcvd}</span>

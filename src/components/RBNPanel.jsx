@@ -47,6 +47,12 @@ function ageLabel(minAgo) {
   return `${Math.round(minAgo / 60)}h ago`
 }
 
+function formatFreq(mhz) {
+  if (!mhz) return '---'
+  const s = mhz.toFixed(4)
+  return s.endsWith('0') ? mhz.toFixed(3) : s
+}
+
 function potaAgeLabel(minAgo) {
   if (minAgo == null) return '--'
   if (minAgo < 1)   return '< 1m'
@@ -130,7 +136,7 @@ function RBNMap({ mode, rbnSpots, potaSpots }) {
           ))}
           {rbnSpotsWithPos.map(s => (
             <g key={`dot-${s.id}`}>
-              <title>{s.spotter} {s.spotter_grid} | {s.band} {s.freq_mhz?.toFixed(3)} MHz | SNR +{s.snr_db}dB | {ageLabel(s.age_min)}</title>
+              <title>{s.spotter} {s.spotter_grid} | {s.band} {formatFreq(s.freq_mhz)} MHz | SNR +{s.snr_db}dB | {ageLabel(s.age_min)}</title>
               <circle
                 cx={s.xy[0]} cy={s.xy[1]} r={4}
                 fill={BAND_COLORS[s.band] || '#00ff41'}
@@ -164,7 +170,7 @@ function RBNMap({ mode, rbnSpots, potaSpots }) {
               onClick={() => window.api?.rig?.setFreq(s.freq_hz)}
               style={{ cursor: 'pointer' }}
             >
-              <title>{`${s.activator} @ ${s.reference}\n${s.park_name_full || s.parkName}\n${s.freq_mhz?.toFixed(3)} MHz ${s.mode} | ${ageLabel(s.age_min)}`}</title>
+              <title>{`${s.activator} @ ${s.reference}\n${s.park_name_full || s.parkName}\n${formatFreq(s.freq_mhz)} MHz ${s.mode} | ${ageLabel(s.age_min)}`}</title>
               <circle
                 cx={s.xy[0]} cy={s.xy[1]} r={5}
                 fill={BAND_COLORS[s.band] || '#00ff41'}
@@ -240,11 +246,11 @@ function SpotRow({ spot, idx }) {
       borderBottom: '1px solid #0d1a0d'
     }}>
       <span style={{ color: '#00551a' }}>
-        {new Date(spot.timestamp).toISOString().slice(11, 15)}Z
+        {new Date(spot.timestamp).toISOString().slice(11, 16).replace(':', '')}z
       </span>
       <span style={{ color: '#00ff41' }}>{spot.spotter}</span>
       <span style={{ color: '#00551a', fontSize: '0.58rem' }}>{spot.spotter_grid || '----'}</span>
-      <span style={{ color: '#ffb000' }}>{spot.freq_mhz?.toFixed(3)}</span>
+      <span style={{ color: '#ffb000' }}>{formatFreq(spot.freq_mhz)}</span>
       <span style={{ color: BAND_COLORS[spot.band] || '#00ff41', fontSize: '0.6rem' }}>
         {spot.band || '---'}
       </span>
@@ -326,7 +332,7 @@ function POTARow({ spot, idx, onClick }) {
     >
       <span style={{ color: '#00551a' }}>{potaAgeLabel(spot.age_min)}</span>
       <span style={{ color: '#00ff41' }}>{spot.activator}</span>
-      <span style={{ color: '#ffb000' }}>{spot.freq_mhz?.toFixed(3)}</span>
+      <span style={{ color: '#ffb000' }}>{formatFreq(spot.freq_mhz)}</span>
       <span style={{ color: BAND_COLORS[spot.band] || '#00ff41', fontSize: '0.6rem' }}>{spot.band}</span>
       <span style={{ color: spot.mode === 'CW' ? '#00ff41' : '#00ddff' }}>{spot.mode}</span>
       <span style={{ color: '#00551a' }}>{spot.reference}</span>
@@ -368,7 +374,7 @@ export default function RBNPanel() {
     window.api?.pota?.get().then(data => {
       if (data?.length) {
         setPotaSpots(data)
-        setPotaLastUpdate(new Date().toISOString().slice(11, 15) + 'z')
+        setPotaLastUpdate(new Date().toISOString().slice(11, 16).replace(':', '') + 'z')
       }
     })
   }, [])
@@ -378,7 +384,7 @@ export default function RBNPanel() {
   useEffect(() => {
     if (potaPushed !== null) {
       setPotaSpots(potaPushed)
-      setPotaLastUpdate(new Date().toISOString().slice(11, 15) + 'z')
+      setPotaLastUpdate(new Date().toISOString().slice(11, 16).replace(':', '') + 'z')
     }
   }, [potaPushed])
 
@@ -413,7 +419,7 @@ export default function RBNPanel() {
       const data = await window.api?.pota?.refresh()
       if (data) {
         setPotaSpots(data)
-        setPotaLastUpdate(new Date().toISOString().slice(11, 15) + 'z')
+        setPotaLastUpdate(new Date().toISOString().slice(11, 16).replace(':', '') + 'z')
       }
     }
     setRefreshing(false)
@@ -446,7 +452,7 @@ export default function RBNPanel() {
                 {recentSpots.length} skimmer{recentSpots.length !== 1 ? 's' : ''} (12h)
                 {lastSpot && (
                   <span style={{ color: '#ffb000', marginLeft: '6px' }}>
-                    last: {lastSpot.freq_mhz?.toFixed(3)} {lastSpot.mode}
+                    last: {formatFreq(lastSpot.freq_mhz)} {lastSpot.mode}
                   </span>
                 )}
               </span>

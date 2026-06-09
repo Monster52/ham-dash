@@ -1,8 +1,19 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import { useIPCEvent } from '../hooks/useIPC'
 
-const SKED_COLS = '44px 80px 55px 38px 65px 32px 75px 80px 1fr'
+const SKED_COLS = '62px 80px 55px 38px 65px 32px 75px 80px 1fr'
 const RBN_COLS  = '44px 80px 55px 38px 65px 32px 60px 65px 48px 36px 1fr'
+
+function formatFreq(mhz) {
+  if (!mhz) return '---'
+  const s = mhz.toFixed(4)
+  return s.endsWith('0') ? mhz.toFixed(3) : s
+}
+
+function skedAgeLabel(age_min) {
+  if (age_min < 1)  return '<1m ago'
+  return `${Math.round(age_min)}m ago`
+}
 
 function awardColor(award) {
   if (!award) return '#335533'
@@ -53,6 +64,7 @@ function SkedRow({ spot, idx }) {
   const [hovered, setHovered] = useState(false)
   const theyNeed = spot.they_need?.length > 0
   const freqHz   = parseStatusFreq(spot.status)
+  const isOld    = spot.age_min >= 60
 
   return (
     <div
@@ -65,9 +77,13 @@ function SkedRow({ spot, idx }) {
         background: hovered ? 'rgba(0,255,65,0.05)' : idx % 2 === 0 ? 'transparent' : 'rgba(0,255,65,0.02)',
         borderBottom: '1px solid #0d1a0d',
         borderLeft: theyNeed ? '2px solid #ffb000' : '2px solid transparent',
+        opacity: isOld ? 0.6 : 1,
       }}
     >
-      <span style={{ color: '#335533' }}>{spot.time}z</span>
+      <span style={{ color: '#335533', display: 'flex', flexDirection: 'column', lineHeight: 1.2 }}>
+        <span>{spot.time}z</span>
+        <span style={{ fontSize: '0.48rem', color: '#1a3a1a' }}>{skedAgeLabel(spot.age_min)}</span>
+      </span>
       <span
         style={{ color: '#00ff41', cursor: 'pointer' }}
         onClick={() => prefillCallsign(spot)}
@@ -132,7 +148,7 @@ function RBNRow({ spot, idx }) {
         onClick={() => tuneRig(freqHz)}
         title="Tune rig"
       >
-        {spot.freq_mhz.toFixed(3)}
+        {formatFreq(spot.freq_mhz)}
       </span>
       <span style={{ color: '#335533', fontSize: '0.62rem' }}>{spot.spotter}</span>
       <span style={{ color: '#335533' }}>{spot.dist_mi}mi</span>
@@ -160,11 +176,15 @@ export default function SKCCPanel() {
   useEffect(() => { if (pushedSked !== null) setSkedData(pushedSked) }, [pushedSked])
   useEffect(() => { if (pushedRbn  !== null) setRbnData(pushedRbn)   }, [pushedRbn])
 
+  const visibleSked = useMemo(() =>
+    skedData.filter(s => s.age_min <= 180),
+  [skedData])
+
   const skedStats = useMemo(() => ({
-    total:    skedData.length,
-    needYou:  skedData.filter(s => s.they_need?.length > 0).length,
-    youNeed:  skedData.filter(s => s.you_need?.length > 0).length,
-  }), [skedData])
+    total:    visibleSked.length,
+    needYou:  visibleSked.filter(s => s.they_need?.length > 0).length,
+    youNeed:  visibleSked.filter(s => s.you_need?.length > 0).length,
+  }), [visibleSked])
 
   const rbnStats = useMemo(() => {
     const total   = rbnData.length
@@ -210,11 +230,11 @@ export default function SKCCPanel() {
           <>
             <ColHeaders cols={SKED_COLS} labels={['TIME', 'CALLSIGN', 'SKCC#', 'AWD', 'NAME', 'SPC', 'STATUS', 'YOU NEED', 'THEY NEED']} />
             <div style={{ overflowY: 'auto', maxHeight: '100px' }}>
-              {skedData.length === 0
+              {visibleSked.length === 0
                 ? <div style={{ padding: '12px 6px', fontSize: '0.65rem', color: '#335533' }}>
                     SKCC SKED PAGE OFFLINE — skimmer connecting...
                   </div>
-                : skedData.map((s, i) => <SkedRow key={`${s.callsign}${s.time}`} spot={s} idx={i} />)
+                : visibleSked.map((s, i) => <SkedRow key={`${s.callsign}${s.time}`} spot={s} idx={i} />)
               }
             </div>
           </>
@@ -240,7 +260,7 @@ export default function SKCCPanel() {
       }}>
         {activeTab === 'sked' ? (
           <>
-            <span>On sked: <span style={{ color: '#00ff41' }}>{skedStats.total}</span></span>
+            <span>On sked: <span style={{ color: '#00ff41' }}>{skedStats.total}</span> <span style={{ color: '#335533' }}>(last 3h)</span></span>
             <span>Need you: <span style={{ color: '#ffb000' }}>{skedStats.needYou}</span></span>
             <span>You need: <span style={{ color: '#00ff41' }}>{skedStats.youNeed}</span></span>
           </>

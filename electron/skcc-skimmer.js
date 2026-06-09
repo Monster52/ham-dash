@@ -96,9 +96,17 @@ function parseLine(line) {
 
 // ---- Data store ----
 
+function currentAgeMin(entry) {
+  return Math.max(0, (Date.now() - parseUTCTime(entry.time)) / 60000)
+}
+
 function addEntry(entry) {
   if (entry.type === 'sked') {
-    skedEntries = [entry, ...skedEntries.filter(e => e.callsign !== entry.callsign)].slice(0, 50)
+    if (entry.age_min > 180) return
+    skedEntries = [
+      entry,
+      ...skedEntries.filter(e => e.callsign !== entry.callsign && currentAgeMin(e) <= 180),
+    ].slice(0, 50)
   } else {
     const key    = `${entry.callsign}|${entry.freq_mhz.toFixed(3)}`
     const cutoff = Date.now() - 5 * 60 * 1000
