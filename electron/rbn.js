@@ -65,6 +65,8 @@ const SKIMMER_GRIDS = {
   'PY2WC':'GG66','LU5HTV':'GF05','CE3CT':'FF46',
   // Africa/Middle East
   'ZS4TX':'KG44','5B4AHJ':'KM64','4X1RF':'KM72',
+  // Extra known skimmers
+  'AA4PA':'EM66',
 };
 
 // Fallback: derive approximate grid from callsign prefix when the exact
@@ -74,15 +76,26 @@ const PREFIX_GRID = {
   'W1':'FN42','K1':'FN42','N1':'FN42',
   'W2':'FN20','K2':'FN20','N2':'FN20',
   'W3':'FM19','K3':'FM19','N3':'FM19',
-  'W4':'EM63','K4':'EM63','N4':'EM63',
+  'W4':'EM74','K4':'EM74','N4':'EM74',
   'W5':'EM20','K5':'EM20','N5':'EM20',
   'W6':'DM04','K6':'DM04','N6':'DM04',
   'W7':'DN31','K7':'DN31','N7':'DN31',
   'W8':'EN82','K8':'EN82','N8':'EN82',
   'W9':'EN52','K9':'EN52','N9':'EN52',
-  'W0':'DN70','K0':'DN70','N0':'DN70',
+  'W0':'EN34','K0':'EN34','N0':'EN34',
   'AA':'FN20','AB':'FN20','AC':'EN34','AD':'DM79','AE':'FN20',
   'AF':'FN20','AG':'FN20','AI':'FN20','AJ':'FN20','AK':'DN70',
+  // A-prefix district overrides (3-char beats 2-char in lookup)
+  'AA0':'EN34','AB0':'EN34','AC0':'EN34',
+  'AA1':'FN42','AB1':'FN42','AC1':'FN42',
+  'AA2':'FN20','AB2':'FN20','AC2':'FN20',
+  'AA3':'FM19','AB3':'FM19','AC3':'FM19',
+  'AA4':'EM74','AB4':'EM74','AC4':'EM74',
+  'AA5':'EM20','AB5':'EM20','AC5':'EM20',
+  'AA6':'DM04','AB6':'DM04','AC6':'DM04',
+  'AA7':'DN31','AB7':'DN31','AC7':'DN31',
+  'AA8':'EN82','AB8':'EN82','AC8':'EN82',
+  'AA9':'EN52','AB9':'EN52','AC9':'EN52',
   'WA':'FN20','WB':'FN20','WC':'FN20','WD':'FN20','WE':'EN52',
   'WF':'EN52','WG':'EN52','WI':'EN52','WJ':'FN20','WK':'FN20',
   'WN':'FN20','WO':'EN52','WP':'FK68','WQ':'FN20','WR':'FN20',
