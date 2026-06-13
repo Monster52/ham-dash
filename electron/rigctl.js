@@ -42,7 +42,7 @@ function startPolling() {
 
   pollInterval = setInterval(async () => {
     try {
-      const freqStr = await xmlrpc('rig.get_vfo')
+      const freqStr = await xmlrpc('rig.get_vfoA')
       const freq    = parseInt(freqStr, 10)
       if (!isNaN(freq) && freq > 0) currentFreq = freq
 
@@ -90,13 +90,13 @@ export async function sendRigCommand(cmd) {
       const step    = parseInt(stepStr, 10)
       const delta   = direction === 'up' ? step : -step
       const newFreq = Math.max(0, currentFreq + delta)
-      await xmlrpc('rig.set_vfo', [newFreq])
+      await xmlrpc('rig.set_frequency', [newFreq])
       currentFreq = newFreq
       return { ok: true }
     }
     if (cmd.startsWith('F ')) {
       const freqHz = parseInt(cmd.slice(2), 10)
-      await xmlrpc('rig.set_vfo', [freqHz])
+      await xmlrpc('rig.set_frequency', [freqHz])
       currentFreq = freqHz
       return { ok: true }
     }
