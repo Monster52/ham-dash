@@ -1,4 +1,4 @@
-const FLRIG_URL = 'http://localhost:12345/RPC2'
+import http from 'http'
 
 let pollInterval  = null
 let retryTimer    = null
@@ -9,29 +9,50 @@ let connected     = false
 
 // ---- XML-RPC transport ----
 
-async function xmlrpc(method, params = []) {
-  const paramXml = params.map(p =>
-    typeof p === 'number'
-      ? `<param><value><double>${p}</double></value></param>`
-      : `<param><value><string>${p}</string></value></param>`
-  ).join('')
+function xmlrpc(method, params = []) {
+  return new Promise((resolve, reject) => {
+    const paramXml = params.map(p =>
+      typeof p === 'number'
+        ? `<param><value><double>${p}</double></value></param>`
+        : `<param><value><string>${p}</string></value></param>`
+    ).join('')
 
-  const body = `<?xml version="1.0"?>
+    const body = `<?xml version="1.0"?>
 <methodCall>
   <methodName>${method}</methodName>
   <params>${paramXml}</params>
 </methodCall>`
 
-  const res = await fetch(FLRIG_URL, {
-    method:  'POST',
-    headers: { 'Content-Type': 'text/xml' },
-    body,
-    signal:  AbortSignal.timeout(3000),
+    const req = http.request({
+      hostname: 'localhost',
+      port: 12345,
+      path: '/RPC2',
+      method: 'POST',
+      headers: {
+        'Content-Type': 'text/xml',
+        'Content-Length': Buffer.byteLength(body)
+      }
+    }, (res) => {
+      let data = ''
+      res.on('data', chunk => data += chunk)
+      res.on('end', () => {
+        if (data.includes('<fault>')) {
+          reject(new Error(`XML-RPC fault from ${method}`))
+          return
+        }
+        const m = data.match(/<value>(?:<[^/][^>]*>)?([^<]*)/)
+        resolve(m ? m[1].trim() : '')
+      })
+    })
+
+    req.on('error', reject)
+    req.setTimeout(3000, () => {
+      req.destroy()
+      reject(new Error('XML-RPC timeout'))
+    })
+    req.write(body)
+    req.end()
   })
-  const text = await res.text()
-  if (text.includes('<fault>')) throw new Error(`XML-RPC fault from ${method}`)
-  const m = text.match(/<value>(?:<[^/][^>]*>)?([^<]*)/)
-  return m ? m[1].trim() : ''
 }
 
 // ---- Polling ----
