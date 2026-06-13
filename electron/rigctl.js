@@ -1,140 +1,112 @@
-import net from 'net'
+const FLRIG_URL = 'http://localhost:12345/RPC2'
 
-let client = null
-let pollInterval = null
+let pollInterval  = null
+let retryTimer    = null
 let statusCallback = null
-let currentFreq = 0
-let currentMode = 'USB'
-let retryTimer = null
-let connected = false
+let currentFreq   = 0
+let currentMode   = 'USB'
+let connected     = false
 
-export function startRigctld(host, port, onStatus) {
-  statusCallback = onStatus
-  connect(host, port)
+// ---- XML-RPC transport ----
+
+async function xmlrpc(method, params = []) {
+  const paramXml = params.map(p =>
+    typeof p === 'number'
+      ? `<param><value><double>${p}</double></value></param>`
+      : `<param><value><string>${p}</string></value></param>`
+  ).join('')
+
+  const body = `<?xml version="1.0"?>
+<methodCall>
+  <methodName>${method}</methodName>
+  <params>${paramXml}</params>
+</methodCall>`
+
+  const res = await fetch(FLRIG_URL, {
+    method:  'POST',
+    headers: { 'Content-Type': 'text/xml' },
+    body,
+    signal:  AbortSignal.timeout(3000),
+  })
+  const text = await res.text()
+  if (text.includes('<fault>')) throw new Error(`XML-RPC fault from ${method}`)
+  const m = text.match(/<value>(?:<[^/][^>]*>)?([^<]*)/)
+  return m ? m[1].trim() : ''
 }
 
-export function stopRigctld() {
-  if (pollInterval) clearInterval(pollInterval)
-  if (retryTimer) clearTimeout(retryTimer)
-  if (client) {
-    client.destroy()
-    client = null
-  }
-  connected = false
-}
+// ---- Polling ----
 
-function connect(host, port) {
-  if (client) client.destroy()
-
-  client = new net.Socket()
-  let buffer = ''
-  let pendingResolve = null
-  let pendingReject = null
-
-  client.connect(port, host, () => {
-    connected = true
-    startPolling(host, port)
-  })
-
-  client.on('data', (data) => {
-    buffer += data.toString()
-    const lines = buffer.split('\n')
-    buffer = lines.pop()
-    for (const line of lines) {
-      const trimmed = line.trim()
-      if (pendingResolve && trimmed) {
-        const resolve = pendingResolve
-        pendingResolve = null
-        pendingReject = null
-        resolve(trimmed)
-      }
-    }
-  })
-
-  client.on('error', () => {
-    connected = false
-    if (pendingReject) {
-      const reject = pendingReject
-      pendingResolve = null
-      pendingReject = null
-      reject(new Error('Connection error'))
-    }
-    statusCallback?.({ connected: false, freq: currentFreq, mode: currentMode, smeter: 0 })
-    scheduleRetry(host, port)
-  })
-
-  client.on('close', () => {
-    connected = false
-    statusCallback?.({ connected: false, freq: currentFreq, mode: currentMode, smeter: 0 })
-    scheduleRetry(host, port)
-  })
-
-  // Attach command sender to client instance
-  client._send = (cmd) => {
-    return new Promise((resolve, reject) => {
-      if (!connected) return reject(new Error('Not connected'))
-      pendingResolve = resolve
-      pendingReject = reject
-      client.write(cmd + '\n')
-      setTimeout(() => {
-        if (pendingReject === reject) {
-          pendingResolve = null
-          pendingReject = null
-          reject(new Error('Timeout'))
-        }
-      }, 2000)
-    })
-  }
-}
-
-function scheduleRetry(host, port) {
+function startPolling() {
+  if (retryTimer)   { clearTimeout(retryTimer);    retryTimer   = null }
   if (pollInterval) { clearInterval(pollInterval); pollInterval = null }
-  if (retryTimer) clearTimeout(retryTimer)
-  retryTimer = setTimeout(() => connect(host, port), 5000)
-}
 
-function startPolling(host, port) {
-  if (pollInterval) clearInterval(pollInterval)
   pollInterval = setInterval(async () => {
-    if (!connected || !client) return
     try {
-      const freqStr = await client._send('f')
-      const freq = parseInt(freqStr, 10)
-      if (!isNaN(freq)) currentFreq = freq
+      const freqStr = await xmlrpc('rig.get_vfo')
+      const freq    = parseInt(freqStr, 10)
+      if (!isNaN(freq) && freq > 0) currentFreq = freq
 
-      const modeStr = await client._send('m')
-      if (modeStr) currentMode = modeStr.split('\n')[0].trim()
+      const mode = await xmlrpc('rig.get_mode')
+      if (mode) currentMode = mode
 
-      const smeterStr = await client._send('l STRENGTH')
-      const smeterRaw = parseInt(smeterStr, 10)
-      const smeter = isNaN(smeterRaw) ? 0 : smeterRaw
+      const smeterStr  = await xmlrpc('rig.get_smeter')
+      const smeter0100 = parseInt(smeterStr, 10)
+      // flrig 0-100 → approximate hamlib dBm (0 = S0 = -54 dBm, 100 = S9+60 = +60 dBm)
+      const smeter = isNaN(smeter0100) ? 0 : Math.round(smeter0100 * 1.14 - 54)
 
-      statusCallback?.({
-        connected: true,
-        freq: currentFreq,
-        mode: currentMode,
-        smeter
-      })
+      connected = true
+      statusCallback?.({ connected: true, freq: currentFreq, mode: currentMode, smeter })
     } catch {
-      // poll failure handled by socket events
+      connected = false
+      statusCallback?.({ connected: false, freq: currentFreq, mode: currentMode, smeter: 0 })
+      scheduleRetry()
     }
   }, 500)
 }
 
+function scheduleRetry() {
+  if (pollInterval) { clearInterval(pollInterval); pollInterval = null }
+  if (retryTimer)   clearTimeout(retryTimer)
+  retryTimer = setTimeout(startPolling, 5000)
+}
+
+// ---- Public API (same signatures as rigctld version) ----
+
+export function startRigctld(_host, _port, onStatus) {
+  statusCallback = onStatus
+  startPolling()
+}
+
+export function stopRigctld() {
+  if (pollInterval) { clearInterval(pollInterval); pollInterval = null }
+  if (retryTimer)   { clearTimeout(retryTimer);    retryTimer   = null }
+  connected = false
+}
+
 export async function sendRigCommand(cmd) {
-  if (!connected || !client) return { ok: false, error: 'Not connected' }
   try {
     if (cmd.startsWith('tuneStep:')) {
       const [, direction, stepStr] = cmd.split(':')
-      const step = parseInt(stepStr, 10)
-      const delta = direction === 'up' ? step : -step
+      const step    = parseInt(stepStr, 10)
+      const delta   = direction === 'up' ? step : -step
       const newFreq = Math.max(0, currentFreq + delta)
-      await client._send(`F ${newFreq}`)
+      await xmlrpc('rig.set_vfo', [newFreq])
       currentFreq = newFreq
       return { ok: true }
     }
-    const result = await client._send(cmd)
-    return { ok: true, result }
+    if (cmd.startsWith('F ')) {
+      const freqHz = parseInt(cmd.slice(2), 10)
+      await xmlrpc('rig.set_vfo', [freqHz])
+      currentFreq = freqHz
+      return { ok: true }
+    }
+    if (cmd.startsWith('M ')) {
+      const mode = cmd.split(' ')[1]
+      await xmlrpc('rig.set_mode', [mode])
+      currentMode = mode
+      return { ok: true }
+    }
+    return { ok: false, error: 'Unknown command' }
   } catch (e) {
     return { ok: false, error: e.message }
   }
