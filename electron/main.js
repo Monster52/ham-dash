@@ -54,6 +54,10 @@ function createWindow() {
     mainWindow.show()
   })
 
+  mainWindow.webContents.on('did-finish-load', () => {
+    initHardware()
+  })
+
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     shell.openExternal(url)
     return { action: 'deny' }
@@ -75,7 +79,6 @@ app.whenReady().then(() => {
 
   db = openDatabase()
   createWindow()
-  initHardware()
 
   app.on('activate', function () {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
