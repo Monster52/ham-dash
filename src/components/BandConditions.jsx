@@ -64,7 +64,7 @@ function BandCard({ band, data }) {
         {'█'.repeat(filledCells)}{'░'.repeat(BAR_CELLS - filledCells)}
       </div>
       <div style={{ color: '#00551a', fontSize: '0.55rem' }}>
-        {count} {count === 1 ? 'spot' : 'spots'}
+        {count} {count === 1 ? 'station' : 'stations'}
       </div>
       <div style={{ color: potaCount > 0 ? '#00ddff' : '#1a3a1a', fontSize: '0.55rem' }}>
         {potaCount > 0 ? `+${potaCount} POTA` : '—'}

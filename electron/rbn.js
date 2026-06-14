@@ -195,10 +195,10 @@ const ACTIVITY_BANDS = ['40m', '20m', '15m', '10m'];
 const ACTIVITY_WINDOW_MS = 30 * 60 * 1000;
 
 let bandActivity = {
-  '40m': [],
-  '20m': [],
-  '15m': [],
-  '10m': [],
+  '40m': new Map(),
+  '20m': new Map(),
+  '15m': new Map(),
+  '10m': new Map(),
 };
 
 const NA_GRID_PREFIXES = new Set([
@@ -213,24 +213,26 @@ function isNorthAmerica(grid) {
   return NA_GRID_PREFIXES.has(grid.slice(0, 2).toUpperCase());
 }
 
-function recordBandActivity(freqMhz, spotterCall) {
+function recordBandActivity(freqMhz, spotterCall, spottedCall) {
   const grid = SKIMMER_GRIDS[spotterCall] || prefixToGrid(spotterCall);
   if (!isNorthAmerica(grid)) return;
   const band = getBand(freqMhz);
   if (!bandActivity[band]) return;
   const now = Date.now();
-  bandActivity[band].push(now);
+  bandActivity[band].set(spottedCall, now);
   const cutoff = now - ACTIVITY_WINDOW_MS;
-  bandActivity[band] = bandActivity[band].filter(t => t > cutoff);
+  for (const [call, time] of bandActivity[band]) {
+    if (time < cutoff) bandActivity[band].delete(call);
+  }
   if (mainWindowRef && !mainWindowRef.isDestroyed()) {
     mainWindowRef.webContents.send('propagation:bandactivity', buildBandActivityData());
   }
 }
 
 function getBandStatus(band) {
-  const count = bandActivity[band]?.length || 0;
-  if (count >= 10) return { status: 'ACTIVE', count };
-  if (count >= 3)  return { status: 'MARGINAL', count };
+  const count = bandActivity[band]?.size || 0;
+  if (count >= 20) return { status: 'ACTIVE', count };
+  if (count >= 5)  return { status: 'MARGINAL', count };
   return { status: 'QUIET', count };
 }
 
@@ -280,7 +282,7 @@ function parseLine(line) {
   const freqMhz = parseFloat(freqStr) / 1000;
   const spotterCall = rawSpotter.replace(/:$/, '');
 
-  if (mode === 'CW') recordBandActivity(freqMhz, spotterCall);
+  if (mode === 'CW') recordBandActivity(freqMhz, spotterCall, dx);
 
   if (dx !== CALLSIGN) return;
 
