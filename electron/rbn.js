@@ -201,7 +201,21 @@ let bandActivity = {
   '10m': [],
 };
 
-function recordBandActivity(freqMhz) {
+const NA_GRID_PREFIXES = new Set([
+  'DL','DM','DN',
+  'EK','EL','EM','EN',
+  'FK','FL','FM','FN',
+  'GN',
+]);
+
+function isNorthAmerica(grid) {
+  if (!grid || grid.length < 2) return false;
+  return NA_GRID_PREFIXES.has(grid.slice(0, 2).toUpperCase());
+}
+
+function recordBandActivity(freqMhz, spotterCall) {
+  const grid = SKIMMER_GRIDS[spotterCall] || prefixToGrid(spotterCall);
+  if (!isNorthAmerica(grid)) return;
   const band = getBand(freqMhz);
   if (!bandActivity[band]) return;
   const now = Date.now();
@@ -264,12 +278,13 @@ function parseLine(line) {
 
   const [, rawSpotter, freqStr, dx, mode, snrStr, wpmStr] = m;
   const freqMhz = parseFloat(freqStr) / 1000;
+  const spotterCall = rawSpotter.replace(/:$/, '');
 
-  if (mode === 'CW') recordBandActivity(freqMhz);
+  if (mode === 'CW') recordBandActivity(freqMhz, spotterCall);
 
   if (dx !== CALLSIGN) return;
 
-  const spotter = rawSpotter.replace(/:$/, '');
+  const spotter = spotterCall;
 
   if (isDuplicate(spotter, freqMhz)) return;
 

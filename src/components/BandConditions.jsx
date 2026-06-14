@@ -148,7 +148,7 @@ export default function BandConditions() {
       {/* Band Activity */}
       <div style={{ borderTop: '1px solid #111f11', paddingTop: '4px' }}>
         <div style={{ fontSize: '0.52rem', color: '#00441a', marginBottom: '4px' }}>
-          BAND ACTIVITY  (RBN + POTA · last 30min CW)
+          BAND ACTIVITY  (North America RBN + US POTA · 30min CW)
         </div>
         <div style={{ display: 'flex', gap: '4px' }}>
           {BANDS.map(band => (
