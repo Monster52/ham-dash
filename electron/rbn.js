@@ -1,6 +1,7 @@
 
 import net from 'net';
 import { ipcMain, app } from 'electron';
+import { getPOTABandCounts } from './pota.js';
 
 const HOST = 'telnet.reversebeacon.net';
 const PORT = 7000;
@@ -190,6 +191,45 @@ let reconnectTimer = null;
 let mainWindowRef = null;
 let quitting = false;
 
+const ACTIVITY_BANDS = ['40m', '20m', '15m', '10m'];
+const ACTIVITY_WINDOW_MS = 30 * 60 * 1000;
+
+let bandActivity = {
+  '40m': [],
+  '20m': [],
+  '15m': [],
+  '10m': [],
+};
+
+function recordBandActivity(freqMhz) {
+  const band = getBand(freqMhz);
+  if (!bandActivity[band]) return;
+  const now = Date.now();
+  bandActivity[band].push(now);
+  const cutoff = now - ACTIVITY_WINDOW_MS;
+  bandActivity[band] = bandActivity[band].filter(t => t > cutoff);
+  if (mainWindowRef && !mainWindowRef.isDestroyed()) {
+    mainWindowRef.webContents.send('propagation:bandactivity', buildBandActivityData());
+  }
+}
+
+function getBandStatus(band) {
+  const count = bandActivity[band]?.length || 0;
+  if (count >= 10) return { status: 'ACTIVE', count };
+  if (count >= 3)  return { status: 'MARGINAL', count };
+  return { status: 'QUIET', count };
+}
+
+function buildBandActivityData() {
+  const potaCounts = getPOTABandCounts();
+  const result = {};
+  for (const band of ACTIVITY_BANDS) {
+    const { status, count } = getBandStatus(band);
+    result[band] = { status, count, potaCount: potaCounts[band] || 0 };
+  }
+  return result;
+}
+
 function getBand(freqMhz) {
   if (freqMhz >= 1.8   && freqMhz < 3.5)   return '160m';
   if (freqMhz >= 3.5   && freqMhz < 7.0)   return '80m';
@@ -223,10 +263,13 @@ function parseLine(line) {
   if (!m) return;
 
   const [, rawSpotter, freqStr, dx, mode, snrStr, wpmStr] = m;
+  const freqMhz = parseFloat(freqStr) / 1000;
+
+  if (mode === 'CW') recordBandActivity(freqMhz);
+
   if (dx !== CALLSIGN) return;
 
   const spotter = rawSpotter.replace(/:$/, '');
-  const freqMhz = parseFloat(freqStr) / 1000;
 
   if (isDuplicate(spotter, freqMhz)) return;
 

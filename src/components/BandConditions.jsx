@@ -1,7 +1,15 @@
 import React, { useState, useEffect } from 'react'
 import { useIPCEvent } from '../hooks/useIPC'
 
-const STATUS_COLOR = { OPEN: '#00ff41', MARG: '#ffb000', CLSD: '#ff2200' }
+const STATUS_COLORS = {
+  ACTIVE:   { border: '#00ff41', text: '#00ff41', bar: '#00ff41' },
+  MARGINAL: { border: '#ffb000', text: '#ffb000', bar: '#ffb000' },
+  QUIET:    { border: '#333333', text: '#335533', bar: '#1a3a1a' },
+}
+
+const BANDS = ['40m', '20m', '15m', '10m']
+const BAR_CELLS = 10
+const BAR_MAX_SPOTS = 50
 
 function kColor(k) {
   const n = parseFloat(k)
@@ -11,39 +19,63 @@ function kColor(k) {
   return '#00ff41'
 }
 
-function mufLabelColor(source) {
-  if (source === 'ionosonde') return '#00ff41'
-  if (source === 'noaa')      return '#00ddff'
-  return '#ffb000'
-}
-
-function BandBadge({ band, status }) {
-  const color = status ? STATUS_COLOR[status] : '#335533'
-  return (
-    <span
-      title={`${band}: ${status || 'unknown'}`}
-      style={{
-        display: 'inline-flex', flexDirection: 'column', alignItems: 'center',
-        padding: '2px 5px',
-        background: `${color}18`,
-        border: `1px solid ${color}55`,
-        fontSize: '0.68rem',
-        cursor: 'default',
-        minWidth: '32px',
-      }}
-    >
-      <span style={{ color: '#00551a' }}>{band}</span>
-      <span style={{ color, fontWeight: 'bold' }}>{status ?? '--'}</span>
-    </span>
-  )
-}
-
 function utcHHMM(iso) {
   return new Date(iso).toISOString().slice(11, 16) + 'z'
 }
 
+function BandCard({ band, data }) {
+  const colors = data ? (STATUS_COLORS[data.status] || STATUS_COLORS.QUIET) : null
+
+  if (!data) {
+    return (
+      <div style={{
+        flex: 1, border: '1px solid #1a3a1a', padding: '5px 6px',
+        background: '#0a150a', textAlign: 'center',
+      }}>
+        <div style={{ color: '#00551a', fontSize: '0.75rem', fontWeight: 'bold', marginBottom: '4px' }}>
+          {band}
+        </div>
+        <div style={{
+          color: '#1a5a1a', fontSize: '0.6rem',
+          animation: 'collecting-pulse 1.5s ease-in-out infinite',
+        }}>
+          COLLECTING...
+        </div>
+      </div>
+    )
+  }
+
+  const { status, count, potaCount } = data
+  const filledCells = Math.round(Math.min(count / BAR_MAX_SPOTS, 1) * BAR_CELLS)
+  const label = status === 'MARGINAL' ? 'MARG' : status
+
+  return (
+    <div style={{
+      flex: 1, border: `1px solid ${colors.border}55`, padding: '5px 6px',
+      background: `${colors.border}08`,
+    }}>
+      <div style={{ color: colors.text, fontSize: '0.75rem', fontWeight: 'bold', marginBottom: '2px' }}>
+        {band}
+      </div>
+      <div style={{ color: colors.text, fontSize: '0.6rem', fontWeight: 'bold', marginBottom: '3px' }}>
+        {label}
+      </div>
+      <div style={{ fontSize: '0.55rem', color: colors.bar, marginBottom: '2px', letterSpacing: '1px' }}>
+        {'█'.repeat(filledCells)}{'░'.repeat(BAR_CELLS - filledCells)}
+      </div>
+      <div style={{ color: '#00551a', fontSize: '0.55rem' }}>
+        {count} {count === 1 ? 'spot' : 'spots'}
+      </div>
+      <div style={{ color: potaCount > 0 ? '#00ddff' : '#1a3a1a', fontSize: '0.55rem' }}>
+        {potaCount > 0 ? `+${potaCount} POTA` : '—'}
+      </div>
+    </div>
+  )
+}
+
 export default function BandConditions() {
-  const pushed = useIPCEvent(window.api?.propagation?.onData, null)
+  const pushed       = useIPCEvent(window.api?.propagation?.onData, null)
+  const bandActivity = useIPCEvent(window.api?.propagation?.onBandActivity, null)
   const [pulled, setPulled] = useState(null)
   const [refreshing, setRefreshing] = useState(false)
 
@@ -51,17 +83,10 @@ export default function BandConditions() {
     window.api?.propagation?.get().then(setPulled)
   }, [])
 
-  const raw = pushed ?? pulled
-  const hasError  = raw?.error != null
-  const propData  = hasError ? null : raw
-  const muf       = propData?.muf
-  const mufSource   = propData?.mufSource
-  const mufLabel    = propData?.mufLabel
-  const mufDetail   = propData?.mufDetail
-  const mufAdjusted = propData?.mufAdjusted
-  const nvisBands   = propData?.nvisBands
-  const dxBands     = propData?.dxBands
-  const sunTimes    = propData?.sunTimes
+  const raw      = pushed ?? pulled
+  const hasError = raw?.error != null
+  const propData = hasError ? null : raw
+  const sunTimes = propData?.sunTimes
 
   const handleRefresh = async () => {
     setRefreshing(true)
@@ -69,19 +94,15 @@ export default function BandConditions() {
     setRefreshing(false)
   }
 
-  const lbl        = { color: '#00551a', marginRight: '3px', fontSize: '0.7rem' }
-  const val        = { fontSize: '0.85rem' }
-  const row        = { display: 'flex', alignItems: 'center', gap: '10px', padding: '3px 0' }
-  const labelColor = mufLabelColor(mufSource)
+  const lbl = { color: '#00551a', marginRight: '3px', fontSize: '0.7rem' }
+  const val = { fontSize: '0.85rem' }
+  const row = { display: 'flex', alignItems: 'center', gap: '10px', padding: '3px 0' }
 
   return (
     <div style={{
-      background: '#0f1a0f',
-      border: '1px solid #1a3a1a',
-      borderRadius: '4px',
-      boxShadow: '0 0 8px rgba(0,255,65,0.15)',
-      padding: '6px',
-      fontFamily: '"Share Tech Mono", monospace'
+      background: '#0f1a0f', border: '1px solid #1a3a1a', borderRadius: '4px',
+      boxShadow: '0 0 8px rgba(0,255,65,0.15)', padding: '6px',
+      fontFamily: '"Share Tech Mono", monospace',
     }}>
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px' }}>
@@ -91,12 +112,11 @@ export default function BandConditions() {
         <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
           {hasError && <span style={{ fontSize: '0.58rem', color: '#ff2200' }}>UNAVAIL</span>}
           <button
-            onClick={handleRefresh}
-            disabled={refreshing}
+            onClick={handleRefresh} disabled={refreshing}
             style={{
               background: 'transparent', border: '1px solid #1a3a1a', color: '#00551a',
               fontFamily: '"Share Tech Mono", monospace', fontSize: '0.58rem',
-              padding: '1px 6px', cursor: 'pointer', opacity: refreshing ? 0.5 : 1
+              padding: '1px 6px', cursor: 'pointer', opacity: refreshing ? 0.5 : 1,
             }}
           >
             {refreshing ? '…' : 'REFRESH'}
@@ -125,64 +145,24 @@ export default function BandConditions() {
         ))}
       </div>
 
-      {/* MUF + foF2 */}
-      <div style={{ ...row, borderTop: '1px solid #111f11' }}>
-        <span>
-          <span style={lbl}>MUF:</span>
-          <span style={{ ...val, color: muf?.muf != null ? '#00ff41' : '#335533' }}>
-            {muf?.muf != null ? `${mufAdjusted ? '~' : ''}${muf.muf}MHz` : '--'}
-          </span>
-          {mufLabel && (
-            <span
-              title={mufDetail || ''}
-              style={{ color: labelColor, fontSize: '0.6rem', marginLeft: '3px', cursor: 'help' }}
-            >
-              {mufLabel}
-            </span>
-          )}
-        </span>
-        <span>
-          <span style={lbl}>foF2:</span>
-          <span style={{ ...val, color: muf?.foF2 != null ? '#00aa2b' : '#335533' }}>
-            {muf?.foF2 != null ? `${muf.foF2}MHz` : '--'}
-          </span>
-        </span>
-      </div>
-
-      {/* NVIS band badges */}
+      {/* Band Activity */}
       <div style={{ borderTop: '1px solid #111f11', paddingTop: '4px' }}>
-        <div title="Regional <500km — based on foF2" style={{ fontSize: '0.52rem', color: '#00441a', marginBottom: '2px', cursor: 'help' }}>NVIS</div>
-        <div style={{ display: 'flex', gap: '4px', flexWrap: 'nowrap' }}>
-          {['80m', '40m', '20m', '15m', '10m'].map(band => (
-            <BandBadge key={band} band={band} status={nvisBands?.[band]} />
+        <div style={{ fontSize: '0.52rem', color: '#00441a', marginBottom: '4px' }}>
+          BAND ACTIVITY  (RBN + POTA · last 30min CW)
+        </div>
+        <div style={{ display: 'flex', gap: '4px' }}>
+          {BANDS.map(band => (
+            <BandCard key={band} band={band} data={bandActivity?.[band] ?? null} />
           ))}
         </div>
       </div>
 
-      {/* DX band badges */}
-      <div style={{ borderTop: '1px solid #111f11', paddingTop: '4px' }}>
-        <div title="Long distance skip — based on MUF" style={{ fontSize: '0.52rem', color: '#00441a', marginBottom: '2px', cursor: 'help' }}>DX</div>
-        <div style={{ display: 'flex', gap: '4px', flexWrap: 'nowrap' }}>
-          {['80m', '40m', '20m', '15m', '10m'].map(band => (
-            <BandBadge key={band} band={band} status={dxBands?.[band]} />
-          ))}
+      {/* Sun times */}
+      {sunTimes && (
+        <div style={{ fontSize: '0.48rem', color: '#005522', padding: '2px 0', borderTop: '1px solid #111f11' }}>
+          {`☀ Rise: ${utcHHMM(sunTimes.sunrise)}  Noon: ${utcHHMM(sunTimes.solarNoon)}  Set: ${utcHHMM(sunTimes.sunset)}`}
         </div>
-      </div>
-
-      {/* Source indicator + sun times */}
-      <div style={{ fontSize: '0.48rem', color: '#00441a', padding: '1px 4px', borderTop: '1px solid #111f11' }}>
-        <div>
-          {mufSource === 'ionosonde' && `ionosonde: ${propData?.muf?.stationName || ''}`}
-          {mufSource === 'noaa'      && 'NOAA real-time Kp'}
-          {mufSource === 'empirical' && 'empirical estimate (HamQSL)'}
-          {!mufSource                && 'no data'}
-        </div>
-        {sunTimes && (
-          <div style={{ marginTop: '1px', color: '#005522' }}>
-            {`☀ Rise: ${utcHHMM(sunTimes.sunrise)}  Noon: ${utcHHMM(sunTimes.solarNoon)}  Set: ${utcHHMM(sunTimes.sunset)}`}
-          </div>
-        )}
-      </div>
+      )}
     </div>
   )
 }

@@ -61,8 +61,6 @@ async function fetchKC2GStations() {
 
     const stations = JSON.parse(body)
     const now = Date.now()
-    const utcHour = new Date().getUTCHours()
-    const daytime = utcHour >= 6 && utcHour <= 20
 
     const scored = []
     for (const s of stations) {
@@ -137,7 +135,6 @@ async function fetchNoaaData() {
       }
     }
 
-    // Fall back to HamQSL SFI if alert parse came up empty — SFI changes slowly
     if (sfi == null && lastHamQSLData?.sfi != null) {
       sfi = parseFloat(lastHamQSLData.sfi) || null
     }
@@ -190,152 +187,19 @@ function scheduleSunriseFetch() {
   }, msUntilMidnight)
 }
 
-function selectActiveSource() {
-  if (cachedIonoResult && cachedIonoResult.score >= 0.25) return 'ionosonde'
-  if (cachedNoaaResult) {
-    const ageMin = (Date.now() - cachedNoaaResult.fetchedAt) / 60000
-    if (ageMin <= 20) return 'noaa'
-    // Cache stale — kick off a background refresh for next cycle
-    fetchNoaaData()
-  }
-  return 'empirical'
-}
-
-function deriveBandStatus(fof2, muf) {
-  const nvis = {}
-  const dx   = {}
-
-  for (const [band, open, marg] of [['80m', 3.5, 2.5], ['40m', 7.0, 5.5], ['20m', 14.0, 11.0], ['15m', 21.0, 17.0], ['10m', 28.0, 24.0]]) {
-    nvis[band] = fof2 == null ? null : fof2 >= open ? 'OPEN' : fof2 >= marg ? 'MARG' : 'CLSD'
-  }
-
-  for (const [band, open, marg] of [['80m', 3.5, 2.5], ['40m', 7.0, 5.0], ['20m', 14.0, 12.0], ['15m', 21.0, 18.0], ['10m', 28.0, 24.0]]) {
-    dx[band] = muf == null ? null : muf >= open ? 'OPEN' : muf >= marg ? 'MARG' : 'CLSD'
-  }
-
-  return { nvis, dx }
-}
-
-function calcDayFactor() {
-  const now    = new Date()
-  const nowMin = now.getUTCHours() * 60 + now.getUTCMinutes()
-
-  if (sunData) {
-    const dawnMin   = new Date(sunData.civil_twilight_begin).getUTCHours() * 60 + new Date(sunData.civil_twilight_begin).getUTCMinutes()
-    const noonMin   = new Date(sunData.solar_noon).getUTCHours() * 60            + new Date(sunData.solar_noon).getUTCMinutes()
-    const sunsetMin = new Date(sunData.sunset).getUTCHours() * 60                + new Date(sunData.sunset).getUTCMinutes()
-    const duskMin   = new Date(sunData.civil_twilight_end).getUTCHours() * 60    + new Date(sunData.civil_twilight_end).getUTCMinutes()
-
-    let dayFactor
-    if (nowMin < dawnMin) {
-      dayFactor = 0.2 + 0.05 * (nowMin / Math.max(dawnMin, 1))
-    } else if (nowMin < noonMin) {
-      const progress = (nowMin - dawnMin) / Math.max(noonMin - dawnMin, 1)
-      dayFactor = 0.2 + 0.8 * Math.pow(progress, 0.30)
-    } else if (nowMin < sunsetMin + 60) {
-      const progress = (nowMin - noonMin) / Math.max(sunsetMin + 60 - noonMin, 1)
-      dayFactor = 1.0 - 0.65 * Math.pow(progress, 1.5)
-    } else if (nowMin < duskMin + 60) {
-      const progress = (nowMin - sunsetMin - 60) / 120
-      dayFactor = 0.35 - 0.15 * Math.min(progress, 1.0)
-    } else {
-      dayFactor = 0.2
-    }
-    return Math.max(0.2, Math.min(1.0, dayFactor))
-  }
-
-  // Mathematical fallback — used when sunrise data unavailable
-  const decimalHour    = now.getUTCHours() + now.getUTCMinutes() / 60
-  const localSolarHour = ((decimalHour + HOME_LON / 15) + 24) % 24
-  if (localSolarHour >= 6 && localSolarHour <= 20) {
-    const peak   = 14.0
-    const spread = localSolarHour < peak ? 8.0 : 12.0
-    return Math.max(0.35, Math.exp(-0.5 * Math.pow((localSolarHour - peak) / spread, 2)))
-  }
-  const nightHour        = localSolarHour < 6 ? localSolarHour + 24 : localSolarHour
-  const distFromMidnight = Math.abs(nightHour - 24)
-  return 0.25 + (distFromMidnight / 18) * 0.10
-}
-
-function deriveMuf(sfi, kindex) {
-  const sfiNum = parseFloat(sfi)
-  const kNum   = parseFloat(kindex)
-  if (isNaN(sfiNum) || isNaN(kNum)) return null
-
-  const dayFactor    = calcDayFactor()
-  const geoFactor    = Math.max(0.5, 1 - (kNum * 0.06))
-  const month        = new Date().getUTCMonth()
-  const seasonFactor = 1 + 0.2 * Math.cos((month - 6) * Math.PI / 6)
-
-  const foF2 = (0.0245 * sfiNum + 3.8) * dayFactor * geoFactor * seasonFactor
-  const muf  = foF2 * 4.0
-
-  const foF2c = Math.round(Math.max(2, Math.min(foF2, 15)) * 10) / 10
-  const mufc  = Math.round(Math.max(4, Math.min(muf,  55)) * 10) / 10
-
-  return { foF2: foF2c, muf: mufc }
-}
-
 function emitUpdate() {
   if (!lastHamQSLData) return null
 
   const { sfi, aindex, kindex, xray, sunspots, bands, updated } = lastHamQSLData
-  const source = selectActiveSource()
 
-  let foF2val, mufVal, mufSource, mufLabel, mufDetail, mufAdjusted = false, mufAge = null
-  let kp, kpSource
-
-  if (source === 'ionosonde') {
-    const r = cachedIonoResult
-    foF2val     = Math.round(r.fof2 * 10) / 10
-    mufVal      = Math.round(r.mufd * 10) / 10
-    mufSource   = 'ionosonde'
-    mufAdjusted = r.adjusted
-    mufAge      = r.ageMin
-    const adjTag = r.adjusted ? ' adj' : ''
-    mufLabel    = `[${r.stationCode} ${r.ageMin}m${adjTag}]`
-    mufDetail   = `${r.stationName} — ${r.distKm} km — ${r.ageMin} min ago — score: ${r.score.toFixed(2)}`
-    kp          = cachedNoaaResult?.kp ?? parseFloat(kindex)
-    kpSource    = cachedNoaaResult?.kp != null ? 'live' : '3h'
-  } else if (source === 'noaa') {
-    const noaaSfi = cachedNoaaResult.sfi ?? parseFloat(sfi)
-    const noaaKp  = cachedNoaaResult.kp  ?? parseFloat(kindex)
-    kp       = noaaKp
-    kpSource = 'live'
-    const derived = deriveMuf(noaaSfi, noaaKp)
-    foF2val  = derived?.foF2 ?? null
-    mufVal   = derived?.muf  ?? null
-    mufSource = 'noaa'
-    mufLabel  = `[NOAA Kp:${noaaKp}]`
-    mufDetail = `Derived from NOAA real-time Kp:${noaaKp}, SFI:${noaaSfi}`
-  } else {
-    const derived = deriveMuf(sfi, kindex)
-    foF2val  = derived?.foF2 ?? null
-    mufVal   = derived?.muf  ?? null
-    mufSource = 'empirical'
-    mufLabel  = '[est.]'
-    mufDetail = 'Estimated from HamQSL SFI + K-index (ITU-R P.1239, ±2–3 MHz)'
-    kp       = parseFloat(kindex)
-    kpSource = '3h'
-  }
-
-  const { nvis: nvisBands, dx: dxBands } = deriveBandStatus(foF2val, mufVal)
+  const kp       = cachedNoaaResult?.kp ?? parseFloat(kindex)
+  const kpSource = cachedNoaaResult?.kp != null ? 'live' : '3h'
 
   return {
     sfi, aindex, kindex,
-    kp: kp ?? parseFloat(kindex),
+    kp,
     kpSource,
     xray, sunspots, bands,
-    muf: {
-      foF2:        foF2val,
-      muf:         mufVal,
-      source:      mufSource,
-      stationName: cachedIonoResult?.stationName,
-      distKm:      cachedIonoResult?.distKm,
-      ageMin:      mufAge,
-    },
-    mufSource, mufLabel, mufDetail, mufAdjusted, mufAge,
-    nvisBands, dxBands,
     sunTimes: sunData ? {
       sunrise:   sunData.sunrise,
       solarNoon: sunData.solar_noon,
@@ -403,10 +267,9 @@ export function stopPropagationTimer() {
 export async function fetchPropagation() {
   await Promise.allSettled([fetchHamQSL(), fetchKC2GStations(), fetchNoaaData(), fetchSunriseSunset()])
   console.log('[propagation] init complete:', {
-    hamqsl:      lastHamQSLData ? 'ok' : 'failed',
-    noaa:        cachedNoaaResult ? 'ok Kp=' + cachedNoaaResult.kp : 'failed',
-    ionosonde:   cachedIonoResult ? 'ok ' + cachedIonoResult.stationCode : 'no valid stations',
-    activeSource: selectActiveSource(),
+    hamqsl:    lastHamQSLData ? 'ok' : 'failed',
+    noaa:      cachedNoaaResult ? 'ok Kp=' + cachedNoaaResult.kp : 'failed',
+    ionosonde: cachedIonoResult ? 'ok ' + cachedIonoResult.stationCode : 'no valid stations',
   })
   return emitUpdate() ?? { error: 'No data available', updated: new Date().toISOString() }
 }

@@ -43,6 +43,12 @@ html, body, #root {
   50% { opacity: 0.3; }
 }
 
+/* Band activity collecting state */
+@keyframes collecting-pulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}
+
 .blink {
   animation: status-blink 1s ease-in-out infinite;
 }

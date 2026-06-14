@@ -42,6 +42,11 @@ const api = {
       ipcRenderer.on('propagation:data', handler)
       return () => ipcRenderer.removeListener('propagation:data', handler)
     },
+    onBandActivity: (cb) => {
+      const handler = (_, data) => cb(data)
+      ipcRenderer.on('propagation:bandactivity', handler)
+      return () => ipcRenderer.removeListener('propagation:bandactivity', handler)
+    },
     get: () => ipcRenderer.invoke('propagation:get'),
     refresh: () => ipcRenderer.invoke('propagation:refresh')
   },

@@ -169,4 +169,15 @@ function getPOTASpots() {
   return getCachedSpots();
 }
 
+export function getPOTABandCounts() {
+  const counts = { '40m': 0, '20m': 0, '15m': 0, '10m': 0 }
+  for (const spot of cachedSpots) {
+    const age = minutesSince(spot.spotTime)
+    if (age <= 30 && spot.mode === 'CW' && counts[spot.band] !== undefined) {
+      counts[spot.band]++
+    }
+  }
+  return counts
+}
+
 export { initPOTA, getPOTASpots };
