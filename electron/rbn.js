@@ -214,7 +214,8 @@ function isNorthAmerica(grid) {
 }
 
 function recordBandActivity(freqMhz, spotterCall, spottedCall) {
-  const grid = SKIMMER_GRIDS[spotterCall] || prefixToGrid(spotterCall);
+  const baseCall = spotterCall.includes('-') ? spotterCall.split('-')[0] : spotterCall;
+  const grid = SKIMMER_GRIDS[baseCall] || prefixToGrid(baseCall);
   if (!isNorthAmerica(grid)) return;
   const band = getBand(freqMhz);
   if (!bandActivity[band]) return;
@@ -287,13 +288,14 @@ function parseLine(line) {
   if (dx !== CALLSIGN) return;
 
   const spotter = spotterCall;
+  const spotterBase = spotter.includes('-') ? spotter.split('-')[0] : spotter;
 
   if (isDuplicate(spotter, freqMhz)) return;
 
   const spot = {
     id: ++spotIdCounter,
     spotter,
-    spotter_grid: SKIMMER_GRIDS[spotter] || prefixToGrid(spotter) || null,
+    spotter_grid: SKIMMER_GRIDS[spotterBase] || prefixToGrid(spotterBase) || null,
     freq_mhz: freqMhz,
     band: getBand(freqMhz),
     mode,
