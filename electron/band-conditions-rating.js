@@ -44,21 +44,20 @@ function dLayerScore(xray) {
   return 0.85
 }
 
-// Band+time-specific geo multiplier applied to the combined score.
-// K=4 caps 80m-40m day and all night bands at Poor (below 0.35 threshold).
-function geoFactor(k, bandGroup, isDay) {
-  const kn = parseFloat(k) || 0
-  if (kn <= 1) return 1.00
-  if (kn <= 2) return 0.88
-  if (kn <= 3) return 0.72
-  if (kn <= 4) {
-    if (!isDay)                  return 0.30  // night: all bands → Poor
-    if (bandGroup === '80m-40m') return 0.30  // 80m-40m day → Poor
-    if (bandGroup === '30m-20m') return 0.62  // Fair still reachable
-    if (bandGroup === '17m-15m') return 0.58
-    return 0.50                                // 12m-10m day
-  }
-  return 0.15  // K5+: severe degradation everywhere
+// Geomagnetic stability multiplier — SMOOTH sigmoid curve, not a hard
+// bracket. Centered on K=5 (NOAA's actual G1/"minor storm" threshold)
+// so K=0-4 ("quiet" through "active") only mildly tapers the score,
+// and real degradation only kicks in from K=5 upward. This replaces
+// a previous version that had a hard cliff at K=4 forcing entire
+// columns to Poor regardless of how good SFI/MUF were — a K of 3.33
+// (merely "active," not a storm) was being treated the same as a
+// genuine G1 storm, which produced exaggerated negative ratings.
+function geoFactor(k) {
+  const kn = Math.max(0, parseFloat(k) || 0)
+  const center    = 5.0   // K=5 = NOAA G1 minor storm threshold
+  const steepness = 1.1
+  const sig = 1 / (1 + Math.exp(steepness * (kn - center)))
+  return 0.15 + 0.85 * sig   // floor 0.15 (severe storm), ceiling 1.0 (calm)
 }
 
 function scoreToRating(score) {
@@ -80,7 +79,7 @@ function computeBandRating(band, sfi, sunspots, k, xray, isDay) {
     // Night: no D-layer. MUF 40%, Ionization 35%
     raw = (muf * 0.40 + ioniz * 0.35) / 0.75
   }
-  return scoreToRating(raw * geoFactor(k, band, isDay))
+  return scoreToRating(raw * geoFactor(k))
 }
 
 export function computeRatings(sfi, sunspots, k, xray) {
