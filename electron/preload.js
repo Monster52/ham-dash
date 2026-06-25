@@ -10,7 +10,8 @@ const api = {
     },
     setFreq: (freqHz) => ipcRenderer.invoke('rig:setFreq', freqHz),
     setMode: (mode) => ipcRenderer.invoke('rig:setMode', mode),
-    tuneStep: (direction, step) => ipcRenderer.invoke('rig:tuneStep', { direction, step })
+    tuneStep: (direction, step) => ipcRenderer.invoke('rig:tuneStep', { direction, step }),
+    init: () => ipcRenderer.invoke('rig:init')
   },
 
   // CW Keyer
@@ -108,6 +109,16 @@ const api = {
       ipcRenderer.on('skcc:rbn', handler)
       return () => ipcRenderer.removeListener('skcc:rbn', handler)
     },
+  },
+
+  // Band conditions rating (N0NBH-style)
+  bandconditions: {
+    onRating: (cb) => {
+      const handler = (_, data) => cb(data)
+      ipcRenderer.on('bandconditions:rating', handler)
+      return () => ipcRenderer.removeListener('bandconditions:rating', handler)
+    },
+    get: () => ipcRenderer.invoke('bandconditions:get'),
   },
 
   // Callsign lookup

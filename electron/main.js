@@ -7,6 +7,7 @@ import { startKeyer, stopKeyer, sendCW, setWpm } from './keyer.js'
 import { startGPS, stopGPS } from './gps.js'
 import { startAdifWatcher, stopAdifWatcher } from './adif-watcher.js'
 import { fetchPropagation, startPropagationTimer, stopPropagationTimer } from './propagation.js'
+import { buildRatingResponse } from './band-conditions-rating.js'
 import { openDatabase, closeDatabase, insertQso, listQsos, searchQsos, deleteQso, getStats } from './db.js'
 import { exportAdif } from './adif-export.js'
 import { initRBN, getRBNSpots } from './rbn.js'
@@ -122,11 +123,15 @@ function initHardware() {
   startPropagationTimer((data) => {
     lastPropagationData = data
     mainWindow?.webContents.send('propagation:data', data)
+    const rating = buildRatingResponse(data)
+    if (rating) mainWindow?.webContents.send('bandconditions:rating', rating)
   })
 
   fetchPropagation().then((data) => {
     lastPropagationData = data
     mainWindow?.webContents.send('propagation:data', data)
+    const rating = buildRatingResponse(data)
+    if (rating) mainWindow?.webContents.send('bandconditions:rating', rating)
   })
 }
 
@@ -150,6 +155,10 @@ ipcMain.handle('rig:setMode', async (_, mode) => {
 
 ipcMain.handle('rig:tuneStep', async (_, { direction, step }) => {
   return sendRigCommand(`tuneStep:${direction}:${step}`)
+})
+
+ipcMain.handle('rig:init', async () => {
+  return await sendRigCommand('init')
 })
 
 ipcMain.handle('keyer:send', async (_, { text, wpm }) => {
@@ -180,7 +189,13 @@ ipcMain.handle('propagation:refresh', async () => {
   const data = await fetchPropagation()
   lastPropagationData = data
   mainWindow?.webContents.send('propagation:data', data)
+  const rating = buildRatingResponse(data)
+  if (rating) mainWindow?.webContents.send('bandconditions:rating', rating)
   return data
+})
+
+ipcMain.handle('bandconditions:get', async () => {
+  return lastPropagationData ? buildRatingResponse(lastPropagationData) : null
 })
 
 // --- QSO prefill relay ---

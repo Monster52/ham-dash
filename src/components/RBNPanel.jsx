@@ -53,6 +53,11 @@ function formatFreq(mhz) {
   return s.endsWith('0') ? mhz.toFixed(3) : s
 }
 
+function normalizeMode(mode, freq_hz) {
+  if (mode === 'SSB') return freq_hz < 10000000 ? 'LSB' : 'USB'
+  return mode
+}
+
 function potaAgeLabel(minAgo) {
   if (minAgo == null) return '--'
   if (minAgo < 1)   return '< 1m'
@@ -167,7 +172,10 @@ function RBNMap({ mode, rbnSpots, potaSpots }) {
           {potaSpotsWithPos.map(s => (
             <g
               key={`pdot-${s.id}`}
-              onClick={() => window.api?.rig?.setFreq(s.freq_hz)}
+              onClick={() => {
+                window.api?.rig?.setFreq(s.freq_hz)
+                window.api?.rig?.setMode(normalizeMode(s.mode, s.freq_hz))
+              }}
               style={{ cursor: 'pointer' }}
             >
               <title>{`${s.activator} @ ${s.reference}\n${s.park_name_full || s.parkName}\n${formatFreq(s.freq_mhz)} MHz ${s.mode} | ${ageLabel(s.age_min)}`}</title>
@@ -427,6 +435,7 @@ export default function RBNPanel() {
 
   const handlePotaRowClick = (spot) => {
     window.api?.rig?.setFreq(spot.freq_hz)
+    window.api?.rig?.setMode(normalizeMode(spot.mode, spot.freq_hz))
     window.api?.qso?.prefill({ callsign: spot.activator, freq_mhz: spot.freq_mhz, mode: spot.mode })
   }
 

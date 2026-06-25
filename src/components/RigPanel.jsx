@@ -86,6 +86,19 @@ export default function RigPanel() {
     window.api?.rig?.setMode(mode)
   }
 
+  const [initing, setIniting] = useState(false)
+  const [initSuccess, setInitSuccess] = useState(false)
+
+  const handleInit = async () => {
+    setIniting(true)
+    const result = await window.api?.rig?.init()
+    setIniting(false)
+    if (result?.ok) {
+      setInitSuccess(true)
+      setTimeout(() => setInitSuccess(false), 2000)
+    }
+  }
+
   const connected = rigStatus?.connected
 
   return (
@@ -104,6 +117,21 @@ export default function RigPanel() {
           <span style={{ fontSize: '0.55rem', color: connected ? '#00ff41' : '#ff2200' }}>
             {connected ? 'ONLINE' : 'OFFLINE'}
           </span>
+          <button
+            onClick={handleInit}
+            disabled={initing}
+            style={{
+              fontSize: '0.6rem',
+              padding: '2px 8px',
+              background: 'transparent',
+              border: `1px solid ${initSuccess ? '#00ff41' : '#ffb000'}`,
+              color: initSuccess ? '#00ff41' : '#ffb000',
+              cursor: initing ? 'default' : 'pointer',
+              letterSpacing: '0.05em'
+            }}
+          >
+            {initing ? '...' : initSuccess ? 'OK ✓' : 'INIT'}
+          </button>
         </span>
       </div>
 

@@ -123,9 +123,17 @@ export async function sendRigCommand(cmd) {
     }
     if (cmd.startsWith('M ')) {
       const mode = cmd.split(' ')[1]
-      await xmlrpc('rig.set_mode', [mode])
+      await xmlrpc('rig.set_verify_mode', [mode])
       currentMode = mode
       return { ok: true }
+    }
+    if (cmd === 'init') {
+      try {
+        await xmlrpc('rig.get_update')
+        return { ok: true }
+      } catch (err) {
+        return { ok: false, error: err.message }
+      }
     }
     return { ok: false, error: 'Unknown command' }
   } catch (e) {

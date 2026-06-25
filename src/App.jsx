@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 import Header from './components/Header'
 import RigPanel from './components/RigPanel'
 import KeyerPanel from './components/KeyerPanel'
-import BandConditions from './components/BandConditions'
+import WeatherSolarTab from './components/WeatherSolarTab'
 import QSOLog from './components/QSOLog'
 import RBNPanel from './components/RBNPanel'
 import SKCCPanel from './components/SKCCPanel'
@@ -49,7 +49,7 @@ export default function App() {
             <KeyerPanel />
           </div>
           <div style={{ flexShrink: 0 }}>
-            <BandConditions />
+            <WeatherSolarTab />
           </div>
         </div>
 

@@ -38,8 +38,11 @@ function parseStatusFreq(status) {
   return isNaN(khz) ? null : Math.round(khz * 1000)
 }
 
-function tuneRig(freqHz) {
-  if (freqHz) window.api?.rig?.setFreq(freqHz)
+function tuneRig(freqHz, mode = 'CW') {
+  if (freqHz) {
+    window.api?.rig?.setFreq(freqHz)
+    window.api?.rig?.setMode(mode)
+  }
 }
 
 function prefillCallsign(spot) {
