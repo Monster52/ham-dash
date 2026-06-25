@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react'
-import { useIPCEvent } from '../hooks/useIPC'
+import { useIPCEvent, useStationConfig } from '../hooks/useIPC'
 import { geoEquirectangular, geoPath, geoGraticule } from 'd3-geo'
 import { feature } from 'topojson-client'
 import worldData from 'world-atlas/countries-110m.json'
@@ -81,7 +81,7 @@ const BOUNDS_GEOJSON = {
   properties: {}
 }
 
-function RBNMap({ mode, rbnSpots, potaSpots }) {
+function RBNMap({ mode, rbnSpots, potaSpots, callsign }) {
   const countries = useMemo(
     () => feature(worldData, worldData.objects.countries),
     []
@@ -199,7 +199,7 @@ function RBNMap({ mode, rbnSpots, potaSpots }) {
             fontSize={8} fill="#00ff41" fontWeight="bold"
             style={{ pointerEvents: 'none' }}
           >
-            KJ5NUJ
+            {callsign}
           </text>
         </g>
       )}
@@ -359,6 +359,7 @@ function POTARow({ spot, idx, onClick }) {
 
 // ---- Main panel ----
 export default function RBNPanel() {
+  const { callsign } = useStationConfig()
   const pushed     = useIPCEvent(window.api?.rbn?.onSpots, null)
   const potaPushed = useIPCEvent(window.api?.pota?.onSpots, null)
 
@@ -493,7 +494,7 @@ export default function RBNPanel() {
 
       {/* Map — always visible, switches content by tab */}
       <div style={{ flex: '3 1 0', minHeight: '200px', borderBottom: '1px solid #1a3a1a', overflow: 'hidden', margin: 0, padding: 0 }}>
-        <RBNMap mode={activeTab} rbnSpots={spots} potaSpots={filteredPota} />
+        <RBNMap mode={activeTab} rbnSpots={spots} potaSpots={filteredPota} callsign={callsign} />
       </div>
 
       {/* Band legend — always visible */}
@@ -519,7 +520,7 @@ export default function RBNPanel() {
               textAlign: 'center', color: '#335533', fontSize: '0.72rem',
               letterSpacing: '0.1em', padding: '8px', flexShrink: 0
             }}>
-              NO SPOTS — RBN only logs KJ5NUJ when actively TX&apos;ing CW/RTTY
+              NO SPOTS — RBN only logs {callsign} when actively TX&apos;ing CW/RTTY
             </div>
           )}
           {spots.length > 0 && (

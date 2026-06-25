@@ -16,17 +16,22 @@ import { initCallsignLookup } from './callsign.js'
 import { initSKCCSkimmer } from './skcc-skimmer.js'
 import { initOutlook, stopOutlook, getOutlookCache, refreshOutlook } from './daily-outlook.js'
 
+const DEFAULT_CALLSIGN = 'KJ5NUJ'
+const DEFAULT_GRID     = 'EM50JI'
+
 const store = new Store({
   defaults: {
+    callsign: DEFAULT_CALLSIGN,
+    grid:     DEFAULT_GRID,
     rigctldHost: 'localhost',
     rigctldPort: 4532,
     keyerPort: '/dev/ttyUSB0',
     adifPath: `${process.env.HOME}/skcclogger/log.adi`,
     keyerMessages: {
-      msg1: 'CQ CQ DE KJ5NUJ KJ5NUJ K',
-      msg2: 'TU 73 DE KJ5NUJ K',
-      msg3: 'KJ5NUJ EM50JI',
-      msg4: 'QRZ? DE KJ5NUJ K'
+      msg1: `CQ CQ DE ${DEFAULT_CALLSIGN} ${DEFAULT_CALLSIGN} K`,
+      msg2: `TU 73 DE ${DEFAULT_CALLSIGN} K`,
+      msg3: `${DEFAULT_CALLSIGN} ${DEFAULT_GRID}`,
+      msg4: `QRZ? DE ${DEFAULT_CALLSIGN} K`
     },
     wpm: 18
   }
@@ -116,7 +121,7 @@ function initHardware() {
     mainWindow?.webContents.send('qso:log', qsos)
   })
 
-  initRBN(mainWindow)
+  initRBN(mainWindow, store.get('callsign'))
   initPOTA(mainWindow)
   initCallsignLookup()
   initSKCCSkimmer(mainWindow)
@@ -264,6 +269,13 @@ ipcMain.handle('qso:stats', async () => {
   return getStats()
 })
 
+// --- Config ---
+
+ipcMain.handle('config:getStation', async () => ({
+  callsign: store.get('callsign'),
+  grid: store.get('grid')
+}))
+
 // --- Settings ---
 
 ipcMain.handle('settings:get', async () => {
@@ -273,6 +285,11 @@ ipcMain.handle('settings:get', async () => {
 ipcMain.handle('settings:set', async (_, newSettings) => {
   const old = store.store
   store.set(newSettings)
+
+  mainWindow?.webContents.send('config:changed', {
+    callsign: store.get('callsign'),
+    grid: store.get('grid')
+  })
 
   if (
     newSettings.rigctldHost !== old.rigctldHost ||

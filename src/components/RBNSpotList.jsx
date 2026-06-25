@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react'
-import { useIPCEvent } from '../hooks/useIPC'
+import { useIPCEvent, useStationConfig } from '../hooks/useIPC'
 
 const HOME = { lat: 30.35, lon: -89.15 }
 
@@ -108,6 +108,7 @@ function StatsRow({ spots }) {
 }
 
 export default function RBNSpotList() {
+  const { callsign } = useStationConfig()
   const pushed = useIPCEvent(window.api?.rbn?.onSpots, null)
   const [spots, setSpots]       = useState([])
   const [refreshing, setRefreshing] = useState(false)
@@ -140,7 +141,7 @@ export default function RBNSpotList() {
         padding: '3px 6px', flexShrink: 0, borderBottom: '1px solid #111f11',
       }}>
         <span style={{ fontSize: '0.62rem', color: '#00aa2b', letterSpacing: '0.12em' }}>
-          RBN SPOTS — KJ5NUJ
+          RBN SPOTS — {callsign}
         </span>
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
           <span style={{ fontSize: '0.58rem', color: recentSpots.length > 0 ? '#00551a' : '#ffb000' }}>
@@ -181,7 +182,7 @@ export default function RBNSpotList() {
             padding: '10px 6px', fontSize: '0.65rem', color: '#335533',
             textAlign: 'center', letterSpacing: '0.1em',
           }}>
-            NO SPOTS — RBN only logs KJ5NUJ when actively TX&apos;ing CW/RTTY
+            NO SPOTS — RBN only logs {callsign} when actively TX&apos;ing CW/RTTY
           </div>
         ) : (
           recentSpots.slice(0, 8).map((s, i) => <SpotRow key={s.id} spot={s} idx={i} />)

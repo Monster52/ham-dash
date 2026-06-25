@@ -5,6 +5,7 @@ export default function SettingsPanel({ onClose }) {
   const [settings, updateSettings] = useSettings()
   const [form, setForm] = useState(null)
   const [saved, setSaved] = useState(false)
+  const [showRestartNote, setShowRestartNote] = useState(false)
 
   useEffect(() => {
     if (settings && !form) {
@@ -17,8 +18,10 @@ export default function SettingsPanel({ onClose }) {
   }
 
   const handleSave = async () => {
+    const restartNeeded = form.callsign !== settings?.callsign || form.grid !== settings?.grid
     await updateSettings(form)
     setSaved(true)
+    if (restartNeeded) setShowRestartNote(true)
     setTimeout(() => setSaved(false), 2000)
   }
 
@@ -82,6 +85,31 @@ export default function SettingsPanel({ onClose }) {
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+
+        {/* Station */}
+        <div>
+          <div style={{ fontSize: '0.65rem', color: '#00551a', letterSpacing: '0.15em', marginBottom: '6px' }}>
+            STATION
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+            <div>
+              <label style={labelStyle}>CALLSIGN</label>
+              <input
+                style={fieldStyle}
+                value={form.callsign || ''}
+                onChange={(e) => handleChange('callsign', e.target.value.toUpperCase())}
+              />
+            </div>
+            <div>
+              <label style={labelStyle}>GRID SQUARE</label>
+              <input
+                style={fieldStyle}
+                value={form.grid || ''}
+                onChange={(e) => handleChange('grid', e.target.value.toUpperCase())}
+              />
+            </div>
+          </div>
+        </div>
 
         {/* Rigctld */}
         <div>
@@ -161,7 +189,12 @@ export default function SettingsPanel({ onClose }) {
 
       </div>
 
-      <div style={{ display: 'flex', gap: '8px', marginTop: '16px', justifyContent: 'flex-end' }}>
+      <div style={{ display: 'flex', gap: '8px', marginTop: '16px', justifyContent: 'flex-end', alignItems: 'center' }}>
+        {showRestartNote && (
+          <span style={{ fontSize: '0.56rem', color: '#ffb000', flex: 1 }}>
+            Restart required for RBN/SKCC/POTA to use new callsign.
+          </span>
+        )}
         <button className="btn-green" style={{ padding: '5px 16px' }} onClick={onClose}>
           CANCEL
         </button>

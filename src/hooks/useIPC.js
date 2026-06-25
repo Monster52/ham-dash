@@ -29,3 +29,14 @@ export function useSettings() {
 
   return [settings, updateSettings]
 }
+
+export function useStationConfig() {
+  const [station, setStation] = useState({ callsign: 'KJ5NUJ', grid: 'EM50JI' })
+
+  useEffect(() => {
+    window.api?.config?.getStation().then(s => { if (s) setStation(s) })
+    return window.api?.config?.onChanged((s) => setStation(s))
+  }, [])
+
+  return station
+}

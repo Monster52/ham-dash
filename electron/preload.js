@@ -132,6 +132,16 @@ const api = {
     get: () => ipcRenderer.invoke('bandconditions:get'),
   },
 
+  // Station config (callsign / grid) — live via config:changed event
+  config: {
+    getStation: () => ipcRenderer.invoke('config:getStation'),
+    onChanged: (cb) => {
+      const handler = (_, data) => cb(data)
+      ipcRenderer.on('config:changed', handler)
+      return () => ipcRenderer.removeListener('config:changed', handler)
+    }
+  },
+
   // Callsign lookup
   callsign: {
     lookup: (call) => ipcRenderer.invoke('callsign:lookup', call)

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { useIPCEvent } from '../hooks/useIPC'
+import { useIPCEvent, useStationConfig } from '../hooks/useIPC'
 
 function UTCClock() {
   const [time, setTime] = useState('')
@@ -21,13 +21,13 @@ function UTCClock() {
   )
 }
 
-function GpsDisplay() {
+function GpsDisplay({ grid }) {
   const gps = useIPCEvent(window.api?.gps?.onStatus, null)
 
   if (!gps?.connected || !gps?.locked || gps?.lat == null) {
     return (
       <span style={{ color: '#00aa2b', fontSize: '0.8rem', letterSpacing: '0.1em' }}>
-        EM50JI
+        {grid}
       </span>
     )
   }
@@ -38,7 +38,7 @@ function GpsDisplay() {
   return (
     <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
       <span style={{ color: '#00aa2b', fontSize: '0.8rem', letterSpacing: '0.1em' }}>
-        {gps.grid || 'EM50JI'}
+        {gps.grid || grid}
       </span>
       <span style={{ color: '#00551a', fontSize: '0.7rem', letterSpacing: '0.05em' }}>
         {latStr} {lonStr}
@@ -48,6 +48,8 @@ function GpsDisplay() {
 }
 
 export default function Header({ onSettings }) {
+  const { callsign, grid } = useStationConfig()
+
   return (
     <div
       style={{
@@ -80,9 +82,9 @@ export default function Header({ onSettings }) {
             textShadow: '0 0 8px rgba(255,176,0,0.4)'
           }}
         >
-          KJ5NUJ
+          {callsign}
         </span>
-        <GpsDisplay />
+        <GpsDisplay grid={grid} />
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>

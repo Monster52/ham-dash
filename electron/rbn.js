@@ -5,7 +5,7 @@ import { getPOTABandCounts } from './pota.js';
 
 const HOST = 'telnet.reversebeacon.net';
 const PORT = 7000;
-const CALLSIGN = 'KJ5NUJ';
+let CALLSIGN = 'KJ5NUJ';
 const MAX_SPOTS = 50;
 const WINDOW_MIN = 720;
 const RECONNECT_DELAY_MS = 30000;
@@ -392,7 +392,8 @@ function getFilteredSpots() {
   return spots;
 }
 
-function initRBN(mainWindow) {
+function initRBN(mainWindow, callsign = 'KJ5NUJ') {
+  CALLSIGN = callsign;
   mainWindowRef = mainWindow;
 
   ipcMain.handle('rbn:get', () => getFilteredSpots());

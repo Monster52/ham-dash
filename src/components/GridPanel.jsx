@@ -1,7 +1,8 @@
 import React from 'react'
-import { useIPCEvent } from '../hooks/useIPC'
+import { useIPCEvent, useStationConfig } from '../hooks/useIPC'
 
 export default function GridPanel() {
+  const { grid: configGrid } = useStationConfig()
   const gps = useIPCEvent(window.api?.gps?.onStatus, {
     connected: false,
     locked: false,
@@ -65,7 +66,7 @@ export default function GridPanel() {
             lineHeight: 1
           }}
         >
-          {gps?.grid || 'EM50JI'}
+          {gps?.grid || configGrid}
         </div>
 
         <div style={{ textAlign: 'center', lineHeight: 1.8 }}>
@@ -117,7 +118,7 @@ export default function GridPanel() {
           paddingTop: '5px'
         }}
       >
-        {locked ? 'GPS FIX' : 'DEFAULT: EM50JI'}
+        {locked ? 'GPS FIX' : `DEFAULT: ${configGrid}`}
       </div>
     </div>
   )

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react'
-import { useIPCEvent } from '../hooks/useIPC'
+import { useIPCEvent, useStationConfig } from '../hooks/useIPC'
 
 const SKED_COLS = '62px 80px 55px 38px 65px 32px 75px 80px 1fr'
 const RBN_COLS  = '44px 80px 55px 38px 65px 32px 60px 65px 48px 36px 1fr'
@@ -165,6 +165,7 @@ function RBNRow({ spot, idx }) {
 
 // ---- Main panel ----
 export default function SKCCPanel() {
+  const { callsign } = useStationConfig()
   const pushedSked = useIPCEvent(window.api?.skcc?.onSked, null)
   const pushedRbn  = useIPCEvent(window.api?.skcc?.onRbn,  null)
   const [skedData, setSkedData] = useState([])
@@ -218,7 +219,7 @@ export default function SKCCPanel() {
         <button style={tabStyle(activeTab === 'sked')} onClick={() => setActiveTab('sked')}>SKED PAGE</button>
         <button style={tabStyle(activeTab === 'rbn')}  onClick={() => setActiveTab('rbn')}>RBN SPOTS</button>
         <span style={{ fontSize: '0.58rem', color: '#00551a', marginLeft: '4px' }}>
-          KJ5NUJ #30741 · Goal: Centurion
+          {callsign} #30741 · Goal: Centurion
         </span>
         <span style={{ fontSize: '0.52rem', color: '#335533', marginLeft: 'auto' }}>
           {activeTab === 'sked'
