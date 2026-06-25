@@ -31,7 +31,7 @@ export function useSettings() {
 }
 
 export function useStationConfig() {
-  const [station, setStation] = useState({ callsign: 'KJ5NUJ', grid: 'EM50JI', skccMember: true })
+  const [station, setStation] = useState({ callsign: 'KJ5NUJ', grid: 'EM50JI', skccMember: true, skccNumber: '30741' })
 
   useEffect(() => {
     window.api?.config?.getStation().then(s => { if (s) setStation(s) })

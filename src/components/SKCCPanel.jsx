@@ -166,7 +166,7 @@ function RBNRow({ spot, idx }) {
 
 // ---- Main panel ----
 export default function SKCCPanel() {
-  const { callsign, skccMember } = useStationConfig()
+  const { callsign, skccMember, skccNumber } = useStationConfig()
   const pushedSked = useIPCEvent(window.api?.skcc?.onSked, null)
   const pushedRbn  = useIPCEvent(window.api?.skcc?.onRbn,  null)
   const [skedData, setSkedData] = useState([])
@@ -233,7 +233,7 @@ export default function SKCCPanel() {
         <button style={tabStyle(activeTab === 'dx')} onClick={() => setActiveTab('dx')}>DX CLUSTER</button>
         {skccMember && (
           <span style={{ fontSize: '0.58rem', color: '#00551a', marginLeft: '4px' }}>
-            {callsign} #30741 · Goal: Centurion
+            {callsign} #{skccNumber} · Goal: Centurion
           </span>
         )}
         <span style={{ fontSize: '0.52rem', color: '#335533', marginLeft: 'auto' }}>

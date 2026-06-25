@@ -13,7 +13,7 @@ import { exportAdif } from './adif-export.js'
 import { initRBN, getRBNSpots } from './rbn.js'
 import { initPOTA } from './pota.js'
 import { initCallsignLookup } from './callsign.js'
-import { initSKCCSkimmer } from './skcc-skimmer.js'
+import { initSKCCSkimmer, startSKCCSkimmer, stopSKCCSkimmer } from './skcc-skimmer.js'
 import { initOutlook, stopOutlook, getOutlookCache, refreshOutlook } from './daily-outlook.js'
 import { initDXCluster, stopDXCluster } from './dxcluster.js'
 
@@ -25,6 +25,7 @@ const store = new Store({
     callsign:       DEFAULT_CALLSIGN,
     grid:           DEFAULT_GRID,
     skccMember:     true,
+    skccNumber:     '30741',
     dxclusterHost:  'hamqth.com',
     dxclusterPort:  7300,
     rigctldHost: 'localhost',
@@ -128,7 +129,8 @@ function initHardware() {
   initRBN(mainWindow, store.get('callsign'))
   initPOTA(mainWindow)
   initCallsignLookup()
-  if (store.get('skccMember')) initSKCCSkimmer(mainWindow)
+  initSKCCSkimmer(mainWindow)
+  if (store.get('skccMember')) startSKCCSkimmer()
   initDXCluster(mainWindow, {
     callsign: store.get('callsign'),
     host:     store.get('dxclusterHost'),
@@ -162,6 +164,7 @@ function shutdownHardware() {
   stopPropagationTimer()
   stopOutlook()
   stopDXCluster()
+  stopSKCCSkimmer()
 }
 
 // --- IPC Handlers ---
@@ -285,6 +288,7 @@ ipcMain.handle('config:getStation', async () => ({
   callsign:   store.get('callsign'),
   grid:       store.get('grid'),
   skccMember: store.get('skccMember'),
+  skccNumber: store.get('skccNumber'),
 }))
 
 // --- Settings ---
@@ -301,6 +305,7 @@ ipcMain.handle('settings:set', async (_, newSettings) => {
     callsign:   store.get('callsign'),
     grid:       store.get('grid'),
     skccMember: store.get('skccMember'),
+    skccNumber: store.get('skccNumber'),
   })
 
   if (
@@ -327,6 +332,12 @@ ipcMain.handle('settings:set', async (_, newSettings) => {
     startAdifWatcher(newSettings.adifPath, db, (qsos) => {
       mainWindow?.webContents.send('qso:log', qsos)
     })
+  }
+
+  if (old.skccMember && !newSettings.skccMember) {
+    stopSKCCSkimmer()
+  } else if (!old.skccMember && newSettings.skccMember) {
+    startSKCCSkimmer()
   }
 
   return store.store

@@ -188,6 +188,12 @@ export function initSKCCSkimmer(mainWindow) {
   ipcMain.handle('skcc:getRbn',  () => rbnSpots)
 
   app.on('before-quit', stopProcess)
+}
 
+export function startSKCCSkimmer() {
   startProcess()
+}
+
+export function stopSKCCSkimmer() {
+  stopProcess()
 }

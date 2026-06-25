@@ -6,6 +6,7 @@ export default function SettingsPanel({ onClose }) {
   const [form, setForm] = useState(null)
   const [saved, setSaved] = useState(false)
   const [showRestartNote, setShowRestartNote] = useState(false)
+  const [skccError, setSkccError] = useState(false)
 
   useEffect(() => {
     if (settings && !form) {
@@ -18,10 +19,14 @@ export default function SettingsPanel({ onClose }) {
   }
 
   const handleSave = async () => {
+    if (form.skccMember && !form.skccNumber?.trim()) {
+      setSkccError(true)
+      return
+    }
+    setSkccError(false)
     const restartNeeded =
       form.callsign      !== settings?.callsign      ||
       form.grid          !== settings?.grid          ||
-      form.skccMember    !== settings?.skccMember    ||
       form.dxclusterHost !== settings?.dxclusterHost ||
       form.dxclusterPort !== settings?.dxclusterPort
     await updateSettings(form)
@@ -96,7 +101,7 @@ export default function SettingsPanel({ onClose }) {
           <div style={{ fontSize: '0.65rem', color: '#00551a', letterSpacing: '0.15em', marginBottom: '6px' }}>
             STATION
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '8px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
             <div>
               <label style={labelStyle}>CALLSIGN</label>
               <input
@@ -114,17 +119,49 @@ export default function SettingsPanel({ onClose }) {
               />
             </div>
           </div>
-          <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+        </div>
+
+        {/* SKCC */}
+        <div>
+          <div style={{ fontSize: '0.65rem', color: '#00551a', letterSpacing: '0.15em', marginBottom: '6px' }}>
+            SKCC
+          </div>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', marginBottom: '6px' }}>
             <input
               type="checkbox"
               checked={form.skccMember ?? true}
-              onChange={(e) => handleChange('skccMember', e.target.checked)}
+              onChange={(e) => {
+                handleChange('skccMember', e.target.checked)
+                if (e.target.checked) setSkccError(false)
+              }}
               style={{ accentColor: '#00ff41', width: '14px', height: '14px', cursor: 'pointer' }}
             />
             <span style={{ fontSize: '0.65rem', color: '#00aa2b', letterSpacing: '0.08em' }}>
               I&apos;m an SKCC member
             </span>
           </label>
+          {form.skccMember && (
+            <div>
+              <label style={labelStyle}>SKCC NUMBER</label>
+              <input
+                style={{
+                  ...fieldStyle,
+                  borderColor: skccError ? '#ff2200' : '#1a3a1a',
+                }}
+                value={form.skccNumber || ''}
+                placeholder="e.g. 30741"
+                onChange={(e) => {
+                  handleChange('skccNumber', e.target.value.replace(/\D/g, ''))
+                  if (e.target.value.trim()) setSkccError(false)
+                }}
+              />
+              {skccError && (
+                <div style={{ fontSize: '0.58rem', color: '#ff2200', marginTop: '3px' }}>
+                  SKCC number required to enable SKCC features
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Rigctld */}
