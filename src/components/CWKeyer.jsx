@@ -11,8 +11,6 @@ export default function CWKeyer() {
     msg3: 'KJ5NUJ EM50JI',
     msg4: 'QRZ? DE KJ5NUJ K'
   })
-  const [editingMsg, setEditingMsg] = useState(null)
-  const [editText, setEditText] = useState('')
   const [sending, setSending] = useState(false)
 
   useEffect(() => {
@@ -35,36 +33,33 @@ export default function CWKeyer() {
     setSending(false)
   }
 
-  const handleSaveMsg = (key) => {
-    const updated = { ...messages, [key]: editText }
-    setMessages(updated)
-    updateSettings?.({ keyerMessages: updated })
-    setEditingMsg(null)
-  }
-
   const connected = keyerStatus?.connected
   const msgKeys   = ['msg1', 'msg2', 'msg3', 'msg4']
   const msgLabels = ['MSG1', 'MSG2', 'MSG3', 'MSG4']
 
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', padding: '8px 10px 10px' }}>
-      {/* Status line */}
-      <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '4px', marginBottom: '8px' }}>
-        <span
-          style={{
-            width: '7px', height: '7px', borderRadius: '50%',
-            background: connected ? '#00ff41' : '#ff2200',
-            boxShadow: connected ? '0 0 4px #00ff41' : '0 0 4px #ff2200',
-            display: 'inline-block'
-          }}
-        />
-        <span style={{ fontSize: '0.55rem', color: connected ? '#00ff41' : '#ff2200' }}>
-          {connected ? 'ONLINE' : 'OFFLINE'}
-        </span>
+
+      {/* Header: title + status */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+        <span style={{ fontSize: '0.62rem', color: '#00aa2b', letterSpacing: '0.12em' }}>CW KEYER</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <span
+            style={{
+              width: '7px', height: '7px', borderRadius: '50%',
+              background: connected ? '#00ff41' : '#ff2200',
+              boxShadow: connected ? '0 0 4px #00ff41' : '0 0 4px #ff2200',
+              display: 'inline-block'
+            }}
+          />
+          <span style={{ fontSize: '0.55rem', color: connected ? '#00ff41' : '#ff2200' }}>
+            {connected ? 'ONLINE' : 'OFFLINE'}
+          </span>
+        </div>
       </div>
 
       {/* WPM Slider */}
-      <div style={{ marginBottom: '10px' }}>
+      <div style={{ marginBottom: '12px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
           <span style={{ fontSize: '0.6rem', color: '#00aa2b', letterSpacing: '0.1em' }}>WPM</span>
           <span style={{ fontSize: '1.1rem', color: '#00ff41', textShadow: '0 0 6px rgba(0,255,65,0.5)' }}>
@@ -81,92 +76,27 @@ export default function CWKeyer() {
         </div>
       </div>
 
-      {/* Dit/Dah buttons */}
-      <div style={{ display: 'flex', gap: '6px', marginBottom: '10px' }}>
-        <button
-          className="btn-green"
-          style={{ flex: 1, letterSpacing: '0.15em' }}
-          onMouseDown={() => window.api?.keyer?.dit()}
-          disabled={!connected}
-        >
-          · DIT
-        </button>
-        <button
-          className="btn-green"
-          style={{ flex: 1, letterSpacing: '0.15em' }}
-          onMouseDown={() => window.api?.keyer?.dah()}
-          disabled={!connected}
-        >
-          — DAH
-        </button>
-      </div>
-
       {/* Message buttons */}
-      <div style={{ fontSize: '0.6rem', color: '#00aa2b', letterSpacing: '0.1em', marginBottom: '6px' }}>
-        MESSAGES
-      </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', flex: 1 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px' }}>
         {msgKeys.map((key, i) => (
-          <div key={key}>
-            {editingMsg === key ? (
-              <div style={{ display: 'flex', gap: '3px' }}>
-                <input
-                  autoFocus
-                  value={editText}
-                  onChange={(e) => setEditText(e.target.value.toUpperCase())}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter')  handleSaveMsg(key)
-                    if (e.key === 'Escape') setEditingMsg(null)
-                  }}
-                  style={{
-                    flex: 1, background: '#0a1a0a', border: '1px solid #00ff41',
-                    color: '#00ff41', fontFamily: '"Share Tech Mono", monospace',
-                    fontSize: '0.65rem', padding: '3px 6px', outline: 'none'
-                  }}
-                />
-                <button
-                  className="btn-green"
-                  style={{ padding: '2px 6px', fontSize: '0.6rem' }}
-                  onClick={() => handleSaveMsg(key)}
-                >
-                  OK
-                </button>
-              </div>
-            ) : (
-              <div style={{ display: 'flex', gap: '3px' }}>
-                <button
-                  className="btn-amber"
-                  style={{
-                    flex: 1, textAlign: 'left', overflow: 'hidden',
-                    textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                    fontSize: '0.62rem', padding: '4px 7px',
-                    opacity: sending ? 0.5 : 1
-                  }}
-                  onClick={() => handleSend(messages[key])}
-                  disabled={!connected || sending}
-                  title={messages[key]}
-                >
-                  {msgLabels[i]}: {messages[key]}
-                </button>
-                <button
-                  style={{
-                    background: 'transparent', border: '1px solid #1a3a1a',
-                    color: '#00551a', fontFamily: '"Share Tech Mono", monospace',
-                    fontSize: '0.55rem', padding: '2px 5px', cursor: 'pointer'
-                  }}
-                  onClick={() => { setEditingMsg(key); setEditText(messages[key]) }}
-                  title="Edit message"
-                >
-                  EDIT
-                </button>
-              </div>
-            )}
-          </div>
+          <button
+            key={key}
+            className="btn-green"
+            style={{
+              fontSize: '0.65rem', padding: '6px 0', letterSpacing: '0.08em',
+              opacity: sending ? 0.5 : 1
+            }}
+            onClick={() => handleSend(messages[key])}
+            disabled={!connected || sending}
+            title={messages[key]}
+          >
+            {msgLabels[i]}
+          </button>
         ))}
       </div>
 
       {sending && (
-        <div style={{ textAlign: 'center', fontSize: '0.65rem', color: '#ffb000', marginTop: '6px' }}>
+        <div style={{ textAlign: 'center', fontSize: '0.65rem', color: '#ffb000', marginTop: '8px' }}>
           SENDING...
         </div>
       )}
