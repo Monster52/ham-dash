@@ -7,7 +7,7 @@ const MAX_SPOTS = 50
 const RECONNECT_DELAY_MS = 5000
 
 // Standard AK1A/DXSpider spot: DX de SPOTTER:   FREQ   DXCALL   COMMENT   HHMMZ
-const DX_SPOT_RE = /^DX de\s+(\S+):\s+([\d.]+)\s+(\S+)\s+(.*?)\s+(\d{4})Z\s*$/
+const DX_SPOT_RE = /^DX de\s+(\S+):\s+([\d.]+)\s+(\S+)\s*(.*?)\s*(\d{4})Z\s*$/
 
 let mainWindowRef = null
 let socket = null
@@ -18,6 +18,7 @@ let configHost = DEFAULT_HOST
 let configPort = DEFAULT_PORT
 let spots = []
 let spotIdCounter = 0
+let currentStatus = 'retrying'
 
 function getBand(freqMhz) {
   if (freqMhz >= 1.8  && freqMhz < 2)    return '160m'
@@ -34,7 +35,9 @@ function getBand(freqMhz) {
 }
 
 function parseLine(line) {
-  const m = DX_SPOT_RE.exec(line.trim())
+  // Strip trailing control chars (DXSpider sends BEL \u0007 after new spots)
+  const clean = line.replace(/[\x00-\x1F\x7F]+$/g, '').trim()
+  const m = DX_SPOT_RE.exec(clean)
   if (!m) return
 
   const [, spotter, freqKhzStr, dxCall, comment, time] = m
@@ -61,6 +64,7 @@ function parseLine(line) {
 }
 
 function sendStatus(status) {
+  currentStatus = status
   if (mainWindowRef && !mainWindowRef.isDestroyed()) {
     mainWindowRef.webContents.send('dxcluster:status', { status })
   }
@@ -119,7 +123,8 @@ function initDXCluster(mainWindow, options = {}) {
   configPort = options.port     || DEFAULT_PORT
   mainWindowRef = mainWindow
 
-  ipcMain.handle('dxcluster:get', () => spots.slice(0, MAX_SPOTS))
+  ipcMain.handle('dxcluster:get',       () => spots.slice(0, MAX_SPOTS))
+  ipcMain.handle('dxcluster:getStatus', () => currentStatus)
 
   connect()
 

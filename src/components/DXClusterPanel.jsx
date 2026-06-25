@@ -58,6 +58,7 @@ export default function DXClusterPanel() {
 
   useEffect(() => {
     window.api?.dxcluster?.get().then(d => { if (d?.length) setSpots(d) })
+    window.api?.dxcluster?.getStatus().then(s => { if (s) setConnStatus(s) })
   }, [])
 
   useEffect(() => {

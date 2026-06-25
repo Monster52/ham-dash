@@ -144,7 +144,8 @@ const api = {
       ipcRenderer.on('dxcluster:status', handler)
       return () => ipcRenderer.removeListener('dxcluster:status', handler)
     },
-    get: () => ipcRenderer.invoke('dxcluster:get'),
+    get:       () => ipcRenderer.invoke('dxcluster:get'),
+    getStatus: () => ipcRenderer.invoke('dxcluster:getStatus'),
   },
 
   // Station config (callsign / grid / skccMember) — live via config:changed event
