@@ -111,6 +111,17 @@ const api = {
     },
   },
 
+  // 24-hour propagation outlook (NOAA SWPC 3-day forecast)
+  outlook: {
+    onData: (cb) => {
+      const handler = (_, data) => cb(data)
+      ipcRenderer.on('outlook:data', handler)
+      return () => ipcRenderer.removeListener('outlook:data', handler)
+    },
+    get:     () => ipcRenderer.invoke('outlook:get'),
+    refresh: () => ipcRenderer.invoke('outlook:refresh'),
+  },
+
   // Band conditions rating (N0NBH-style)
   bandconditions: {
     onRating: (cb) => {

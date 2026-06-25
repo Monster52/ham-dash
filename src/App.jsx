@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import Header from './components/Header'
 import RigPanel from './components/RigPanel'
-import KeyerPanel from './components/KeyerPanel'
+import KeyerOutlookTabs from './components/KeyerOutlookTabs'
 import WeatherSolarTab from './components/WeatherSolarTab'
 import QSOLog from './components/QSOLog'
 import RBNPanel from './components/RBNPanel'
@@ -46,7 +46,7 @@ export default function App() {
         {/* Col 2 row 1: Keyer + Band Conditions */}
         <div style={{ gridColumn: 2, gridRow: 1, display: 'flex', flexDirection: 'column', gap: '6px', overflow: 'hidden', minHeight: 0 }}>
           <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
-            <KeyerPanel />
+            <KeyerOutlookTabs />
           </div>
           <div style={{ flexShrink: 0 }}>
             <WeatherSolarTab />

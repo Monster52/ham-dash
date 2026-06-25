@@ -14,6 +14,7 @@ import { initRBN, getRBNSpots } from './rbn.js'
 import { initPOTA } from './pota.js'
 import { initCallsignLookup } from './callsign.js'
 import { initSKCCSkimmer } from './skcc-skimmer.js'
+import { initOutlook, stopOutlook, getOutlookCache, refreshOutlook } from './daily-outlook.js'
 
 const store = new Store({
   defaults: {
@@ -133,6 +134,10 @@ function initHardware() {
     const rating = buildRatingResponse(data)
     if (rating) mainWindow?.webContents.send('bandconditions:rating', rating)
   })
+
+  initOutlook((data) => {
+    mainWindow?.webContents.send('outlook:data', data)
+  })
 }
 
 function shutdownHardware() {
@@ -141,6 +146,7 @@ function shutdownHardware() {
   stopGPS()
   stopAdifWatcher()
   stopPropagationTimer()
+  stopOutlook()
 }
 
 // --- IPC Handlers ---
@@ -196,6 +202,16 @@ ipcMain.handle('propagation:refresh', async () => {
 
 ipcMain.handle('bandconditions:get', async () => {
   return lastPropagationData ? buildRatingResponse(lastPropagationData) : null
+})
+
+ipcMain.handle('outlook:get', async () => {
+  return getOutlookCache()
+})
+
+ipcMain.handle('outlook:refresh', async () => {
+  const data = await refreshOutlook()
+  if (data) mainWindow?.webContents.send('outlook:data', data)
+  return data
 })
 
 // --- QSO prefill relay ---
