@@ -18,7 +18,12 @@ export default function SettingsPanel({ onClose }) {
   }
 
   const handleSave = async () => {
-    const restartNeeded = form.callsign !== settings?.callsign || form.grid !== settings?.grid
+    const restartNeeded =
+      form.callsign      !== settings?.callsign      ||
+      form.grid          !== settings?.grid          ||
+      form.skccMember    !== settings?.skccMember    ||
+      form.dxclusterHost !== settings?.dxclusterHost ||
+      form.dxclusterPort !== settings?.dxclusterPort
     await updateSettings(form)
     setSaved(true)
     if (restartNeeded) setShowRestartNote(true)
@@ -91,7 +96,7 @@ export default function SettingsPanel({ onClose }) {
           <div style={{ fontSize: '0.65rem', color: '#00551a', letterSpacing: '0.15em', marginBottom: '6px' }}>
             STATION
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '8px' }}>
             <div>
               <label style={labelStyle}>CALLSIGN</label>
               <input
@@ -109,6 +114,17 @@ export default function SettingsPanel({ onClose }) {
               />
             </div>
           </div>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+            <input
+              type="checkbox"
+              checked={form.skccMember ?? true}
+              onChange={(e) => handleChange('skccMember', e.target.checked)}
+              style={{ accentColor: '#00ff41', width: '14px', height: '14px', cursor: 'pointer' }}
+            />
+            <span style={{ fontSize: '0.65rem', color: '#00aa2b', letterSpacing: '0.08em' }}>
+              I&apos;m an SKCC member
+            </span>
+          </label>
         </div>
 
         {/* Rigctld */}
@@ -163,6 +179,33 @@ export default function SettingsPanel({ onClose }) {
             onChange={(e) => handleChange('adifPath', e.target.value)}
             placeholder="~/skcclogger/log.adi"
           />
+        </div>
+
+        {/* DX Cluster */}
+        <div>
+          <div style={{ fontSize: '0.65rem', color: '#00551a', letterSpacing: '0.15em', marginBottom: '6px' }}>
+            DX CLUSTER
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 100px', gap: '8px' }}>
+            <div>
+              <label style={labelStyle}>HOST</label>
+              <input
+                style={fieldStyle}
+                value={form.dxclusterHost || ''}
+                onChange={(e) => handleChange('dxclusterHost', e.target.value)}
+                placeholder="hamqth.com"
+              />
+            </div>
+            <div>
+              <label style={labelStyle}>PORT</label>
+              <input
+                style={fieldStyle}
+                type="number"
+                value={form.dxclusterPort || 7300}
+                onChange={(e) => handleChange('dxclusterPort', Number(e.target.value))}
+              />
+            </div>
+          </div>
         </div>
 
         {/* Keyer Messages */}

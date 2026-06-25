@@ -132,7 +132,22 @@ const api = {
     get: () => ipcRenderer.invoke('bandconditions:get'),
   },
 
-  // Station config (callsign / grid) — live via config:changed event
+  // DX Cluster
+  dxcluster: {
+    onSpot: (cb) => {
+      const handler = (_, data) => cb(data)
+      ipcRenderer.on('dxcluster:spot', handler)
+      return () => ipcRenderer.removeListener('dxcluster:spot', handler)
+    },
+    onStatus: (cb) => {
+      const handler = (_, data) => cb(data)
+      ipcRenderer.on('dxcluster:status', handler)
+      return () => ipcRenderer.removeListener('dxcluster:status', handler)
+    },
+    get: () => ipcRenderer.invoke('dxcluster:get'),
+  },
+
+  // Station config (callsign / grid / skccMember) — live via config:changed event
   config: {
     getStation: () => ipcRenderer.invoke('config:getStation'),
     onChanged: (cb) => {

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import { useIPCEvent, useStationConfig } from '../hooks/useIPC'
+import DXClusterPanel from './DXClusterPanel'
 
 const SKED_COLS = '62px 80px 55px 38px 65px 32px 75px 80px 1fr'
 const RBN_COLS  = '44px 80px 55px 38px 65px 32px 60px 65px 48px 36px 1fr'
@@ -165,12 +166,19 @@ function RBNRow({ spot, idx }) {
 
 // ---- Main panel ----
 export default function SKCCPanel() {
-  const { callsign } = useStationConfig()
+  const { callsign, skccMember } = useStationConfig()
   const pushedSked = useIPCEvent(window.api?.skcc?.onSked, null)
   const pushedRbn  = useIPCEvent(window.api?.skcc?.onRbn,  null)
   const [skedData, setSkedData] = useState([])
   const [rbnData,  setRbnData]  = useState([])
   const [activeTab, setActiveTab] = useState('sked')
+
+  // If SKCC membership is toggled off, switch away from SKCC-only tabs
+  useEffect(() => {
+    if (!skccMember && (activeTab === 'sked' || activeTab === 'rbn')) {
+      setActiveTab('dx')
+    }
+  }, [skccMember])
 
   useEffect(() => {
     window.api?.skcc?.getSked().then(d => { if (d) setSkedData(d) })
@@ -216,21 +224,32 @@ export default function SKCCPanel() {
     }}>
       {/* Header row */}
       <div style={{ display: 'flex', alignItems: 'center', padding: '2px 6px', gap: '8px', flexShrink: 0, borderBottom: '1px solid #111f11' }}>
-        <button style={tabStyle(activeTab === 'sked')} onClick={() => setActiveTab('sked')}>SKED PAGE</button>
-        <button style={tabStyle(activeTab === 'rbn')}  onClick={() => setActiveTab('rbn')}>RBN SPOTS</button>
-        <span style={{ fontSize: '0.58rem', color: '#00551a', marginLeft: '4px' }}>
-          {callsign} #30741 · Goal: Centurion
-        </span>
+        {skccMember && (
+          <>
+            <button style={tabStyle(activeTab === 'sked')} onClick={() => setActiveTab('sked')}>SKED PAGE</button>
+            <button style={tabStyle(activeTab === 'rbn')}  onClick={() => setActiveTab('rbn')}>RBN SPOTS</button>
+          </>
+        )}
+        <button style={tabStyle(activeTab === 'dx')} onClick={() => setActiveTab('dx')}>DX CLUSTER</button>
+        {skccMember && (
+          <span style={{ fontSize: '0.58rem', color: '#00551a', marginLeft: '4px' }}>
+            {callsign} #30741 · Goal: Centurion
+          </span>
+        )}
         <span style={{ fontSize: '0.52rem', color: '#335533', marginLeft: 'auto' }}>
           {activeTab === 'sked'
             ? `${skedStats.total} entries`
-            : `${rbnStats.total} spots`}
+            : activeTab === 'rbn'
+            ? `${rbnStats.total} spots`
+            : null}
         </span>
       </div>
 
       {/* Table area */}
       <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-        {activeTab === 'sked' ? (
+        {activeTab === 'dx' ? (
+          <DXClusterPanel />
+        ) : activeTab === 'sked' ? (
           <>
             <ColHeaders cols={SKED_COLS} labels={['TIME', 'CALLSIGN', 'SKCC#', 'AWD', 'NAME', 'SPC', 'STATUS', 'YOU NEED', 'THEY NEED']} />
             <div style={{ overflowY: 'auto', maxHeight: '100px' }}>
@@ -257,30 +276,32 @@ export default function SKCCPanel() {
         )}
       </div>
 
-      {/* Stats bar */}
-      <div style={{
-        display: 'flex', gap: '10px', padding: '2px 6px',
-        borderTop: '1px solid #111f11', fontSize: '0.55rem', color: '#00551a', flexShrink: 0,
-      }}>
-        {activeTab === 'sked' ? (
-          <>
-            <span>On sked: <span style={{ color: '#00ff41' }}>{skedStats.total}</span> <span style={{ color: '#335533' }}>(last 3h)</span></span>
-            <span>Need you: <span style={{ color: '#ffb000' }}>{skedStats.needYou}</span></span>
-            <span>You need: <span style={{ color: '#00ff41' }}>{skedStats.youNeed}</span></span>
-          </>
-        ) : (
-          <>
-            <span>Live spots: <span style={{ color: '#00ff41' }}>{rbnStats.total}</span></span>
-            <span>Need you: <span style={{ color: '#ffb000' }}>{rbnStats.needYou}</span></span>
-            {rbnStats.best && (
-              <span>Best SNR: <span style={{ color: '#00ff41' }}>{rbnStats.best.callsign} +{rbnStats.best.snr_db}dB</span></span>
-            )}
-            {rbnStats.closest && (
-              <span>Closest: <span style={{ color: '#00ff41' }}>{rbnStats.closest.callsign} {rbnStats.closest.dist_mi}mi</span></span>
-            )}
-          </>
-        )}
-      </div>
+      {/* Stats bar — only for SKCC tabs */}
+      {activeTab !== 'dx' && (
+        <div style={{
+          display: 'flex', gap: '10px', padding: '2px 6px',
+          borderTop: '1px solid #111f11', fontSize: '0.55rem', color: '#00551a', flexShrink: 0,
+        }}>
+          {activeTab === 'sked' ? (
+            <>
+              <span>On sked: <span style={{ color: '#00ff41' }}>{skedStats.total}</span> <span style={{ color: '#335533' }}>(last 3h)</span></span>
+              <span>Need you: <span style={{ color: '#ffb000' }}>{skedStats.needYou}</span></span>
+              <span>You need: <span style={{ color: '#00ff41' }}>{skedStats.youNeed}</span></span>
+            </>
+          ) : (
+            <>
+              <span>Live spots: <span style={{ color: '#00ff41' }}>{rbnStats.total}</span></span>
+              <span>Need you: <span style={{ color: '#ffb000' }}>{rbnStats.needYou}</span></span>
+              {rbnStats.best && (
+                <span>Best SNR: <span style={{ color: '#00ff41' }}>{rbnStats.best.callsign} +{rbnStats.best.snr_db}dB</span></span>
+              )}
+              {rbnStats.closest && (
+                <span>Closest: <span style={{ color: '#00ff41' }}>{rbnStats.closest.callsign} {rbnStats.closest.dist_mi}mi</span></span>
+              )}
+            </>
+          )}
+        </div>
+      )}
     </div>
   )
 }

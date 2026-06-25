@@ -15,14 +15,18 @@ import { initPOTA } from './pota.js'
 import { initCallsignLookup } from './callsign.js'
 import { initSKCCSkimmer } from './skcc-skimmer.js'
 import { initOutlook, stopOutlook, getOutlookCache, refreshOutlook } from './daily-outlook.js'
+import { initDXCluster, stopDXCluster } from './dxcluster.js'
 
 const DEFAULT_CALLSIGN = 'KJ5NUJ'
 const DEFAULT_GRID     = 'EM50JI'
 
 const store = new Store({
   defaults: {
-    callsign: DEFAULT_CALLSIGN,
-    grid:     DEFAULT_GRID,
+    callsign:       DEFAULT_CALLSIGN,
+    grid:           DEFAULT_GRID,
+    skccMember:     true,
+    dxclusterHost:  'hamqth.com',
+    dxclusterPort:  7300,
     rigctldHost: 'localhost',
     rigctldPort: 4532,
     keyerPort: '/dev/ttyUSB0',
@@ -124,7 +128,12 @@ function initHardware() {
   initRBN(mainWindow, store.get('callsign'))
   initPOTA(mainWindow)
   initCallsignLookup()
-  initSKCCSkimmer(mainWindow)
+  if (store.get('skccMember')) initSKCCSkimmer(mainWindow)
+  initDXCluster(mainWindow, {
+    callsign: store.get('callsign'),
+    host:     store.get('dxclusterHost'),
+    port:     store.get('dxclusterPort'),
+  })
 
   startPropagationTimer((data) => {
     lastPropagationData = data
@@ -152,6 +161,7 @@ function shutdownHardware() {
   stopAdifWatcher()
   stopPropagationTimer()
   stopOutlook()
+  stopDXCluster()
 }
 
 // --- IPC Handlers ---
@@ -272,8 +282,9 @@ ipcMain.handle('qso:stats', async () => {
 // --- Config ---
 
 ipcMain.handle('config:getStation', async () => ({
-  callsign: store.get('callsign'),
-  grid: store.get('grid')
+  callsign:   store.get('callsign'),
+  grid:       store.get('grid'),
+  skccMember: store.get('skccMember'),
 }))
 
 // --- Settings ---
@@ -287,8 +298,9 @@ ipcMain.handle('settings:set', async (_, newSettings) => {
   store.set(newSettings)
 
   mainWindow?.webContents.send('config:changed', {
-    callsign: store.get('callsign'),
-    grid: store.get('grid')
+    callsign:   store.get('callsign'),
+    grid:       store.get('grid'),
+    skccMember: store.get('skccMember'),
   })
 
   if (
