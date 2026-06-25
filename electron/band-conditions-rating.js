@@ -47,17 +47,28 @@ function dLayerScore(xray) {
 // Geomagnetic stability multiplier — SMOOTH sigmoid curve, not a hard
 // bracket. Centered on K=5 (NOAA's actual G1/"minor storm" threshold)
 // so K=0-4 ("quiet" through "active") only mildly tapers the score,
-// and real degradation only kicks in from K=5 upward. This replaces
-// a previous version that had a hard cliff at K=4 forcing entire
-// columns to Poor regardless of how good SFI/MUF were — a K of 3.33
-// (merely "active," not a storm) was being treated the same as a
-// genuine G1 storm, which produced exaggerated negative ratings.
+// and real degradation only kicks in from K=5 upward. A previous
+// version hard-coded a cliff at K=4 that punished merely "active"
+// conditions (K~3.3) as if they were a real storm.
 function geoFactor(k) {
   const kn = Math.max(0, parseFloat(k) || 0)
   const center    = 5.0   // K=5 = NOAA G1 minor storm threshold
   const steepness = 1.1
   const sig = 1 / (1 + Math.exp(steepness * (kn - center)))
   return 0.15 + 0.85 * sig   // floor 0.15 (severe storm), ceiling 1.0 (calm)
+}
+
+// 80m-40m is uniquely sensitive to daytime D-region absorption (low
+// frequencies are absorbed first/worst) and to nighttime geomagnetic
+// noise/absorption — effects that aren't fully captured by the MUF/
+// ionization terms alone, since high SFI doesn't offset photon-driven
+// D-layer absorption. Calibrated against N0NBH/HamQSL's live reference
+// table (hamqsl.com) so 80m-40m tracks the same day-worse/night-better
+// pattern hams are used to seeing, rather than scoring it like a
+// generic mid-band.
+function lowBandPenalty(band, isDay) {
+  if (band !== '80m-40m') return 1.0
+  return isDay ? 0.44 : 0.70
 }
 
 function scoreToRating(score) {
@@ -73,13 +84,14 @@ function computeBandRating(band, sfi, sunspots, k, xray, isDay) {
   let raw
   if (isDay) {
     const dlayer = dLayerScore(xray)
-    // Weights: MUF 35%, Ionization 30%, D-layer 15% (geo applied separately)
+    // Weights: MUF 35%, Ionization 30%, D-layer 15% (geo + low-band applied separately)
     raw = (muf * 0.35 + ioniz * 0.30 + dlayer * 0.15) / 0.80
   } else {
     // Night: no D-layer. MUF 40%, Ionization 35%
     raw = (muf * 0.40 + ioniz * 0.35) / 0.75
   }
-  return scoreToRating(raw * geoFactor(k))
+  const score = raw * geoFactor(k) * lowBandPenalty(band, isDay)
+  return scoreToRating(score)
 }
 
 export function computeRatings(sfi, sunspots, k, xray) {
