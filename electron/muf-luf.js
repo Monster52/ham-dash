@@ -19,9 +19,21 @@ function solarElevationSin(lat, lon, utcMs) {
 }
 
 // SFI-formula fallback MUF (vertical, MHz).
-function sfiMuf(sfi) {
+//
+// Calibration anchor: hamdeck.com reference shows ~29.3 MHz MUF at
+// SFI=157, Kp=0.0 (calm). foF2 at SFI=157 = (157-40)*0.072+2.5 = 11.92.
+// Required multiplier to hit 29.3: 29.3 / 11.92 ≈ 2.46 (not the classic
+// 3.0 "3000km hop" factor, which runs hot for a general usable-window
+// headline figure rather than a long low-angle DX hop).
+//
+// Also applies a mild K-index discount: elevated geomagnetic activity
+// depresses the F-layer MUF too, not just LUF — a K=4+ active/storm
+// period should pull MUF down somewhat, matching real-world ionosonde
+// behavior during disturbed conditions.
+function sfiMuf(sfi, k) {
   const foF2 = Math.max(1, (sfi - 40) * 0.072 + 2.5)
-  return Math.round(foF2 * 3.0 * 10) / 10
+  const kPenalty = 1 - Math.min(0.15, Math.max(0, (k - 2)) * 0.025)  // mild, caps at -15%
+  return Math.round(foF2 * 2.46 * kPenalty * 10) / 10
 }
 
 // LUF estimate from solar zenith, X-ray flux, and K-index.
@@ -63,7 +75,7 @@ export function computeMufLuf(propData, lat, lon, ionoResult) {
     mufStationDistKm = ionoResult.distKm       ?? null
     mufAgeMin        = ionoResult.ageMin        ?? null
   } else {
-    mufMHz           = sfiMuf(sfi)
+    mufMHz           = sfiMuf(sfi, parseFloat(propData.kp ?? propData.kindex) || 0)
     mufSource        = 'estimated'
     mufStationCode   = null
     mufStationDistKm = null
