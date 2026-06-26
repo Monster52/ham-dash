@@ -6,7 +6,7 @@ const RATING_BG    = { Good: 'rgba(0,255,65,0.10)', Fair: 'rgba(255,176,0,0.10)'
 
 const BAND_ORDER   = ['80m-40m', '30m-20m', '17m-15m', '12m-10m']
 const ACTIVITY_BANDS = ['40m', '20m', '15m', '10m']
-const BAR_CELLS    = 10
+const BAR_CELLS    = 8
 const BAR_MAX      = 50
 
 const STATUS_COLOR = {
@@ -47,11 +47,11 @@ function ActivityCard({ band, data }) {
   if (!data) {
     return (
       <div style={{
-        flex: 1, border: '1px solid #1a3a1a', padding: '4px 5px',
+        flex: 1, border: '1px solid #1a3a1a', padding: '2px 4px',
         background: '#0a150a', textAlign: 'center',
       }}>
-        <div style={{ color: '#00551a', fontSize: '0.7rem', fontWeight: 'bold', marginBottom: '2px' }}>{band}</div>
-        <div style={{ color: '#1a3a1a', fontSize: '0.5rem' }}>—</div>
+        <span style={{ color: '#00551a', fontSize: '0.6rem', fontWeight: 'bold' }}>{band}</span>
+        <span style={{ color: '#1a3a1a', fontSize: '0.46rem' }}> —</span>
       </div>
     )
   }
@@ -59,16 +59,16 @@ function ActivityCard({ band, data }) {
   const filled = Math.round(Math.min(data.count / BAR_MAX, 1) * BAR_CELLS)
   const label  = data.status === 'MARGINAL' ? 'MARG' : data.status
   return (
-    <div style={{ flex: 1, border: `1px solid ${color}55`, padding: '4px 5px', background: `${color}08` }}>
-      <div style={{ color, fontSize: '0.7rem', fontWeight: 'bold', marginBottom: '1px' }}>{band}</div>
-      <div style={{ color, fontSize: '0.52rem', fontWeight: 'bold', marginBottom: '2px' }}>{label}</div>
-      <div style={{ fontSize: '0.48rem', color, marginBottom: '1px', letterSpacing: '1px' }}>
+    <div style={{ flex: 1, border: `1px solid ${color}55`, padding: '2px 4px', background: `${color}08` }}>
+      <div style={{ color, fontSize: '0.6rem', fontWeight: 'bold', marginBottom: '1px' }}>
+        {band} <span style={{ fontSize: '0.44rem' }}>{label}</span>
+      </div>
+      <div style={{ fontSize: '0.42rem', color, marginBottom: '1px', letterSpacing: '1px' }}>
         {'█'.repeat(filled)}{'░'.repeat(BAR_CELLS - filled)}
       </div>
-      <div style={{ color: '#00551a', fontSize: '0.48rem' }}>{data.count} stn</div>
-      {data.potaCount > 0 && (
-        <div style={{ color: '#00ddff', fontSize: '0.46rem' }}>+{data.potaCount} POTA</div>
-      )}
+      <div style={{ color: '#00551a', fontSize: '0.42rem' }}>
+        {data.count} stn{data.potaCount > 0 && <span style={{ color: '#00ddff' }}> +{data.potaCount}P</span>}
+      </div>
     </div>
   )
 }
