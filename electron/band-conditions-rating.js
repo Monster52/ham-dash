@@ -32,7 +32,7 @@ function ionizScore(sfi, sunspots, isDay) {
 }
 
 // D-layer absorption from X-ray flux class (day only)
-function dLayerScore(xray) {
+export function dLayerScore(xray) {
   if (!xray || xray === '---') return 0.85
   const c = xray.charAt(0).toUpperCase()
   const n = parseFloat(xray.slice(1)) || 1

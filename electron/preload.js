@@ -158,6 +158,16 @@ const api = {
     }
   },
 
+  // MUF/LUF estimate
+  mufluf: {
+    onData: (cb) => {
+      const handler = (_, data) => cb(data)
+      ipcRenderer.on('mufluf:data', handler)
+      return () => ipcRenderer.removeListener('mufluf:data', handler)
+    },
+    get: () => ipcRenderer.invoke('mufluf:get'),
+  },
+
   // Callsign lookup
   callsign: {
     lookup: (call) => ipcRenderer.invoke('callsign:lookup', call)

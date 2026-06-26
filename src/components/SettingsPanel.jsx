@@ -245,6 +245,23 @@ export default function SettingsPanel({ onClose }) {
           </div>
         </div>
 
+        {/* MUF/LUF Location */}
+        <div>
+          <div style={{ fontSize: '0.65rem', color: '#00551a', letterSpacing: '0.15em', marginBottom: '6px' }}>
+            MUF/LUF LOCATION
+          </div>
+          <label style={labelStyle}>GRID SQUARE OVERRIDE</label>
+          <input
+            style={fieldStyle}
+            value={form.mufLufGrid || ''}
+            onChange={(e) => handleChange('mufLufGrid', e.target.value.toUpperCase())}
+            placeholder="Leave blank to use station grid"
+          />
+          <div style={{ fontSize: '0.55rem', color: '#00441a', marginTop: '3px' }}>
+            Overrides station grid for MUF/LUF solar calculations only.
+          </div>
+        </div>
+
         {/* Keyer Messages */}
         <div>
           <div style={{ fontSize: '0.65rem', color: '#00551a', letterSpacing: '0.15em', marginBottom: '6px' }}>

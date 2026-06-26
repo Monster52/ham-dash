@@ -16,6 +16,8 @@ import { initCallsignLookup } from './callsign.js'
 import { initSKCCSkimmer, startSKCCSkimmer, stopSKCCSkimmer } from './skcc-skimmer.js'
 import { initOutlook, stopOutlook, getOutlookCache, refreshOutlook } from './daily-outlook.js'
 import { initDXCluster, stopDXCluster } from './dxcluster.js'
+import { gridToLatLon } from './grid-utils.js'
+import { computeMufLuf } from './muf-luf.js'
 
 const DEFAULT_CALLSIGN = 'KJ5NUJ'
 const DEFAULT_GRID     = 'EM50JI'
@@ -26,6 +28,7 @@ const store = new Store({
     grid:           DEFAULT_GRID,
     skccMember:     true,
     skccNumber:     '30741',
+    mufLufGrid:     '',
     dxclusterHost:  'hamqth.com',
     dxclusterPort:  7300,
     rigctldHost: 'localhost',
@@ -44,6 +47,7 @@ const store = new Store({
 
 let mainWindow = null
 let lastPropagationData = null
+let lastMufLufData = null
 let db = null
 
 function createWindow() {
@@ -107,6 +111,24 @@ function emitQsoUpdate() {
   mainWindow?.webContents.send('qso:log', listQsos(50))
 }
 
+function emitMufLuf() {
+  if (!lastPropagationData || lastPropagationData.error) return
+  const overrideGrid = (store.get('mufLufGrid') || '').trim()
+  const stationGrid  = store.get('grid') || DEFAULT_GRID
+  const resolvedGrid = overrideGrid || stationGrid
+  const isOverride   = !!overrideGrid
+
+  let coords = gridToLatLon(resolvedGrid)
+  if (!coords) {
+    console.warn(`[muf-luf] Invalid grid "${resolvedGrid}", falling back to ${stationGrid}`)
+    coords = gridToLatLon(stationGrid) || { lat: 30.35, lon: -89.15 }
+  }
+
+  const result = computeMufLuf(lastPropagationData, coords.lat, coords.lon)
+  lastMufLufData = { ...result, updated: new Date().toISOString(), gridUsed: resolvedGrid, isOverride }
+  mainWindow?.webContents.send('mufluf:data', lastMufLufData)
+}
+
 function initHardware() {
   const settings = store.store
 
@@ -142,6 +164,7 @@ function initHardware() {
     mainWindow?.webContents.send('propagation:data', data)
     const rating = buildRatingResponse(data)
     if (rating) mainWindow?.webContents.send('bandconditions:rating', rating)
+    emitMufLuf()
   })
 
   fetchPropagation().then((data) => {
@@ -149,6 +172,7 @@ function initHardware() {
     mainWindow?.webContents.send('propagation:data', data)
     const rating = buildRatingResponse(data)
     if (rating) mainWindow?.webContents.send('bandconditions:rating', rating)
+    emitMufLuf()
   })
 
   initOutlook((data) => {
@@ -215,8 +239,11 @@ ipcMain.handle('propagation:refresh', async () => {
   mainWindow?.webContents.send('propagation:data', data)
   const rating = buildRatingResponse(data)
   if (rating) mainWindow?.webContents.send('bandconditions:rating', rating)
+  emitMufLuf()
   return data
 })
+
+ipcMain.handle('mufluf:get', async () => lastMufLufData)
 
 ipcMain.handle('bandconditions:get', async () => {
   return lastPropagationData ? buildRatingResponse(lastPropagationData) : null
@@ -338,6 +365,10 @@ ipcMain.handle('settings:set', async (_, newSettings) => {
     stopSKCCSkimmer()
   } else if (!old.skccMember && newSettings.skccMember) {
     startSKCCSkimmer()
+  }
+
+  if (newSettings.mufLufGrid !== undefined && newSettings.mufLufGrid !== old.mufLufGrid) {
+    emitMufLuf()
   }
 
   return store.store

@@ -77,18 +77,22 @@ export default function WeatherSolarTab() {
   const pushed       = useIPCEvent(window.api?.propagation?.onData,       null)
   const ratingPushed = useIPCEvent(window.api?.bandconditions?.onRating,  null)
   const bandActivity = useIPCEvent(window.api?.propagation?.onBandActivity, null)
+  const mufLufPushed = useIPCEvent(window.api?.mufluf?.onData,            null)
 
   const [pulled,    setPulled]    = useState(null)
   const [rating,    setRating]    = useState(null)
+  const [mufLuf,   setMufLuf]    = useState(null)
   const [refreshing, setRefreshing] = useState(false)
 
   useEffect(() => {
     window.api?.propagation?.get().then(setPulled)
     window.api?.bandconditions?.get().then(d => { if (d) setRating(d) })
+    window.api?.mufluf?.get().then(d => { if (d) setMufLuf(d) })
   }, [])
 
-  useEffect(() => { if (pushed      !== null) setPulled(pushed)      }, [pushed])
-  useEffect(() => { if (ratingPushed !== null) setRating(ratingPushed) }, [ratingPushed])
+  useEffect(() => { if (pushed       !== null) setPulled(pushed)       }, [pushed])
+  useEffect(() => { if (ratingPushed !== null) setRating(ratingPushed)  }, [ratingPushed])
+  useEffect(() => { if (mufLufPushed !== null) setMufLuf(mufLufPushed)  }, [mufLufPushed])
 
   const raw      = pushed ?? pulled
   const hasError = raw?.error != null
@@ -161,6 +165,49 @@ export default function WeatherSolarTab() {
           </span>
         ))}
       </div>
+
+      {/* Usable HF Window */}
+      {mufLuf && (
+        <div style={{ borderTop: '1px solid #111f11', paddingTop: '4px', marginBottom: '4px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '3px' }}>
+            <span style={{ fontSize: '0.5rem', color: '#00441a', letterSpacing: '0.08em' }}>
+              USABLE HF WINDOW
+            </span>
+            <span style={{ fontSize: '0.48rem', color: '#00331a' }}>
+              {mufLuf.isOverride ? `grid: ${mufLuf.gridUsed} (override)` : `grid: ${mufLuf.gridUsed}`}
+            </span>
+          </div>
+          <div style={{ display: 'flex', gap: '16px', marginBottom: '4px' }}>
+            <span style={{ fontSize: '0.65rem', color: '#00aa2b' }}>
+              LUF: <span style={{ color: '#00ff41' }}>{mufLuf.lufMHz} MHz</span>
+            </span>
+            <span style={{ fontSize: '0.65rem', color: '#00aa2b' }}>
+              MUF: <span style={{ color: '#00ff41' }}>{mufLuf.mufMHz} MHz</span>
+            </span>
+          </div>
+          {/* Range bar: 1.8–30 MHz scale */}
+          {(() => {
+            const MIN = 1.8, MAX = 30
+            const span = MAX - MIN
+            const lufPct = Math.max(0, Math.min(100, ((mufLuf.lufMHz - MIN) / span) * 100))
+            const mufPct = Math.max(0, Math.min(100, ((mufLuf.mufMHz - MIN) / span) * 100))
+            const widthPct = Math.max(0, mufPct - lufPct)
+            return (
+              <div style={{ position: 'relative', height: '7px', background: '#0a1a0a', border: '1px solid #1a3a1a', borderRadius: '2px', marginBottom: '3px' }}>
+                <div style={{
+                  position: 'absolute', top: 0, bottom: 0,
+                  left: `${lufPct}%`, width: `${widthPct}%`,
+                  background: 'linear-gradient(90deg, #00551a, #00ff41)',
+                  borderRadius: '1px',
+                }} />
+              </div>
+            )
+          })()}
+          <div style={{ fontSize: '0.46rem', color: '#003311' }}>
+            Estimated from SFI/K/X-ray for {mufLuf.gridUsed} — actual frequencies vary by path, distance, and direction.
+          </div>
+        </div>
+      )}
 
       {/* N0NBH-style band rating table */}
       <div style={{ borderTop: '1px solid #111f11', paddingTop: '4px' }}>
