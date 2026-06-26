@@ -177,12 +177,23 @@ export default function WeatherSolarTab() {
               {mufLuf.isOverride ? `grid: ${mufLuf.gridUsed} (override)` : `grid: ${mufLuf.gridUsed}`}
             </span>
           </div>
-          <div style={{ display: 'flex', gap: '16px', marginBottom: '4px' }}>
+          <div style={{ display: 'flex', gap: '16px', marginBottom: '4px', flexWrap: 'wrap' }}>
             <span style={{ fontSize: '0.65rem', color: '#00aa2b' }}>
-              LUF: <span style={{ color: '#00ff41' }}>{mufLuf.lufMHz} MHz</span>
+              LUF:{' '}
+              <span style={{ color: '#00ff41' }}>{mufLuf.lufMHz} MHz</span>
+              <span style={{ fontSize: '0.52rem', color: '#00551a' }}> (est)</span>
             </span>
             <span style={{ fontSize: '0.65rem', color: '#00aa2b' }}>
-              MUF: <span style={{ color: '#00ff41' }}>{mufLuf.mufMHz} MHz</span>
+              MUF:{' '}
+              <span style={{ color: '#00ff41' }}>{mufLuf.mufMHz} MHz</span>
+              {mufLuf.mufSource === 'measured' ? (
+                <span style={{ fontSize: '0.52rem', color: '#00aa2b' }}>
+                  {' '}({mufLuf.mufStationCode}, {mufLuf.mufStationDistKm}km
+                  {mufLuf.mufAgeMin != null ? `, ${mufLuf.mufAgeMin}min` : ''})
+                </span>
+              ) : (
+                <span style={{ fontSize: '0.52rem', color: '#00551a' }}> (est)</span>
+              )}
             </span>
           </div>
           {/* Range bar: 1.8–30 MHz scale */}
@@ -204,7 +215,10 @@ export default function WeatherSolarTab() {
             )
           })()}
           <div style={{ fontSize: '0.46rem', color: '#003311' }}>
-            Estimated from SFI/K/X-ray for {mufLuf.gridUsed} — actual frequencies vary by path, distance, and direction.
+            {mufLuf.mufSource === 'measured'
+              ? `MUF from ionosonde ${mufLuf.mufStationCode} (${mufLuf.mufStationDistKm}km${mufLuf.mufAgeMin != null ? `, ${mufLuf.mufAgeMin}min ago` : ''}) — LUF estimated from SFI/K/X-ray. Actual usable frequencies vary by path and direction.`
+              : `MUF and LUF estimated from SFI/K/X-ray for ${mufLuf.gridUsed} — no ionosonde data available. Actual usable frequencies vary by path and direction.`
+            }
           </div>
         </div>
       )}

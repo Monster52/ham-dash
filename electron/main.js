@@ -6,7 +6,7 @@ import { startRigctld, stopRigctld, sendRigCommand } from './rigctl.js'
 import { startKeyer, stopKeyer, sendCW, setWpm } from './keyer.js'
 import { startGPS, stopGPS } from './gps.js'
 import { startAdifWatcher, stopAdifWatcher } from './adif-watcher.js'
-import { fetchPropagation, startPropagationTimer, stopPropagationTimer } from './propagation.js'
+import { fetchPropagation, startPropagationTimer, stopPropagationTimer, getCachedIonoResult } from './propagation.js'
 import { buildRatingResponse } from './band-conditions-rating.js'
 import { openDatabase, closeDatabase, insertQso, listQsos, searchQsos, deleteQso, getStats } from './db.js'
 import { exportAdif } from './adif-export.js'
@@ -124,7 +124,7 @@ function emitMufLuf() {
     coords = gridToLatLon(stationGrid) || { lat: 30.35, lon: -89.15 }
   }
 
-  const result = computeMufLuf(lastPropagationData, coords.lat, coords.lon)
+  const result = computeMufLuf(lastPropagationData, coords.lat, coords.lon, getCachedIonoResult())
   lastMufLufData = { ...result, updated: new Date().toISOString(), gridUsed: resolvedGrid, isOverride }
   mainWindow?.webContents.send('mufluf:data', lastMufLufData)
 }
