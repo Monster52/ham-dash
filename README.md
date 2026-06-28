@@ -130,6 +130,52 @@ All settings persist between sessions via electron-store.
 
 ---
 
+## Local HTTP API
+
+The dashboard exposes a small read-only HTTP API on port **2600** for
+constrained LAN clients such as an ESP32 propagation station display.
+**No authentication** — LAN use only; do not expose this port to the internet.
+
+### `GET /api/station-summary`
+
+Returns a flat JSON object with short keys suitable for small-RAM clients.
+Cached server-side for 5 minutes, so polling every 30–60 s is fine.
+
+```bash
+curl http://<machine-ip>:2600/api/station-summary
+```
+
+Example response:
+```json
+{
+  "ts":        "2026-06-28T14:32:00.000Z",
+  "band_cond": "GOOD",
+  "muf":       24.8,
+  "luf":        4.1,
+  "sfi":       142,
+  "kidx":        2,
+  "best_band": "20m",
+  "grid":      "EM50JI",
+  "callsign":  "KJ5NUJ"
+}
+```
+
+| Field       | Type            | Source                                   |
+|-------------|-----------------|------------------------------------------|
+| `ts`        | ISO-8601 string | Server clock at response build time      |
+| `band_cond` | GOOD/FAIR/POOR  | Majority vote across 4 band groups, calibrated band-conditions algorithm |
+| `muf`       | number (MHz)    | KC2G ionosonde MUF(3000) if available, else SFI formula |
+| `luf`       | number (MHz)    | Estimated from SFI/K/X-ray and solar zenith |
+| `sfi`       | integer         | NOAA `f107_cm_flux.json`, latest value   |
+| `kidx`      | integer         | NOAA `planetary_k_index_1m.json`, latest |
+| `best_band` | string          | Highest-rated band for current local time-of-day |
+| `grid`      | string          | Station grid square (from Settings)      |
+| `callsign`  | string          | Station callsign (from Settings)         |
+
+`muf` and `luf` are `null` if no propagation data has loaded yet.
+
+---
+
 ## IPC Architecture
 
 ```

@@ -18,6 +18,7 @@ import { initOutlook, stopOutlook, getOutlookCache, refreshOutlook } from './dai
 import { initDXCluster, stopDXCluster } from './dxcluster.js'
 import { gridToLatLon } from './grid-utils.js'
 import { computeMufLuf } from './muf-luf.js'
+import { initApiServer, stopApiServer } from './api-server.js'
 
 const DEFAULT_CALLSIGN = 'KJ5NUJ'
 const DEFAULT_GRID     = 'EM50JI'
@@ -178,6 +179,13 @@ function initHardware() {
   initOutlook((data) => {
     mainWindow?.webContents.send('outlook:data', data)
   })
+
+  initApiServer(2600, () => ({
+    propData:   lastPropagationData,
+    mufLufData: lastMufLufData,
+    callsign:   store.get('callsign'),
+    grid:       store.get('grid'),
+  }))
 }
 
 function shutdownHardware() {
@@ -189,6 +197,7 @@ function shutdownHardware() {
   stopOutlook()
   stopDXCluster()
   stopSKCCSkimmer()
+  stopApiServer()
 }
 
 // --- IPC Handlers ---
