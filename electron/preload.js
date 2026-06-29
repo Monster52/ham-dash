@@ -158,6 +158,12 @@ const api = {
     }
   },
 
+  // Local API server status / cache control
+  apiserver: {
+    getStatus: () => ipcRenderer.invoke('apiserver:status'),
+    flush:     () => ipcRenderer.invoke('apiserver:flush'),
+  },
+
   // MUF/LUF estimate
   mufluf: {
     onData: (cb) => {

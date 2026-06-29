@@ -7,12 +7,18 @@ export default function SettingsPanel({ onClose }) {
   const [saved, setSaved] = useState(false)
   const [showRestartNote, setShowRestartNote] = useState(false)
   const [skccError, setSkccError] = useState(false)
+  const [apiStatus, setApiStatus] = useState(null)
+  const [apiFlushed, setApiFlushed] = useState(false)
 
   useEffect(() => {
     if (settings && !form) {
       setForm({ ...settings })
     }
   }, [settings])
+
+  useEffect(() => {
+    window.api?.apiserver?.getStatus().then(setApiStatus)
+  }, [])
 
   const handleChange = (key, value) => {
     setForm(prev => ({ ...prev, [key]: value }))
@@ -242,6 +248,44 @@ export default function SettingsPanel({ onClose }) {
                 onChange={(e) => handleChange('dxclusterPort', Number(e.target.value))}
               />
             </div>
+          </div>
+        </div>
+
+        {/* API Server */}
+        <div>
+          <div style={{ fontSize: '0.65rem', color: '#00551a', letterSpacing: '0.15em', marginBottom: '6px' }}>
+            API SERVER
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+            <span style={{
+              width: '8px', height: '8px', borderRadius: '50%', flexShrink: 0,
+              background: apiStatus?.listening ? '#00ff41' : '#ff2200',
+              boxShadow: apiStatus?.listening ? '0 0 5px #00ff41' : '0 0 5px #ff2200',
+            }} />
+            <span style={{ fontSize: '0.65rem', color: apiStatus?.listening ? '#00ff41' : '#ff2200' }}>
+              {apiStatus?.listening
+                ? `LISTENING ON :${apiStatus.port}`
+                : 'NOT LISTENING'}
+            </span>
+          </div>
+          {apiStatus?.listening && (
+            <div style={{ fontSize: '0.55rem', color: '#00551a', marginBottom: '6px', fontFamily: 'monospace' }}>
+              http://&lt;machine-ip&gt;:{apiStatus.port}/api/station-summary
+            </div>
+          )}
+          <button
+            className="btn-green"
+            style={{ padding: '3px 12px', fontSize: '0.6rem' }}
+            onClick={async () => {
+              await window.api?.apiserver?.flush()
+              setApiFlushed(true)
+              setTimeout(() => setApiFlushed(false), 2000)
+            }}
+          >
+            {apiFlushed ? 'CACHE CLEARED' : 'FLUSH CACHE'}
+          </button>
+          <div style={{ fontSize: '0.52rem', color: '#00441a', marginTop: '4px' }}>
+            Forces fresh data on next ESP32 poll (bypasses 5-min cache).
           </div>
         </div>
 

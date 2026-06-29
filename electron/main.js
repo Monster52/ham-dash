@@ -18,7 +18,7 @@ import { initOutlook, stopOutlook, getOutlookCache, refreshOutlook } from './dai
 import { initDXCluster, stopDXCluster } from './dxcluster.js'
 import { gridToLatLon } from './grid-utils.js'
 import { computeMufLuf } from './muf-luf.js'
-import { initApiServer, stopApiServer } from './api-server.js'
+import { initApiServer, stopApiServer, flushApiCache, getApiServerStatus } from './api-server.js'
 
 const DEFAULT_CALLSIGN = 'KJ5NUJ'
 const DEFAULT_GRID     = 'EM50JI'
@@ -253,6 +253,9 @@ ipcMain.handle('propagation:refresh', async () => {
 })
 
 ipcMain.handle('mufluf:get', async () => lastMufLufData)
+
+ipcMain.handle('apiserver:status', async () => getApiServerStatus())
+ipcMain.handle('apiserver:flush',  async () => { flushApiCache(); return { ok: true } })
 
 ipcMain.handle('bandconditions:get', async () => {
   return lastPropagationData ? buildRatingResponse(lastPropagationData) : null

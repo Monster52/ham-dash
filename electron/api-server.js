@@ -29,6 +29,7 @@ const DAY_PRIORITY   = ['30m-20m', '17m-15m', '80m-40m', '12m-10m']
 const NIGHT_PRIORITY = ['80m-40m', '30m-20m', '17m-15m', '12m-10m']
 
 let server        = null
+let serverPort    = 2600
 let endpointCache = { json: null, builtAt: 0 }
 
 // ---------------------------------------------------------------------------
@@ -161,6 +162,7 @@ async function buildSummary(getData) {
 // ---------------------------------------------------------------------------
 
 export function initApiServer(port, getData) {
+  serverPort = port
   server = http.createServer(async (req, res) => {
     if (req.method !== 'GET' || req.url !== '/api/station-summary') {
       res.writeHead(404, { 'Content-Type': 'text/plain' })
@@ -203,4 +205,12 @@ export function initApiServer(port, getData) {
 
 export function stopApiServer() {
   if (server) { server.close(); server = null }
+}
+
+export function flushApiCache() {
+  endpointCache = { json: null, builtAt: 0 }
+}
+
+export function getApiServerStatus() {
+  return { listening: server?.listening ?? false, port: serverPort }
 }
