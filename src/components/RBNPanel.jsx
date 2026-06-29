@@ -4,6 +4,38 @@ import { geoEquirectangular, geoPath, geoGraticule } from 'd3-geo'
 import { feature } from 'topojson-client'
 import worldData from 'world-atlas/countries-110m.json'
 
+// ---- Grey-line / solar terminator math ----
+const DEG = Math.PI / 180
+
+function computeTerminator(nowMs) {
+  const date = new Date(nowMs)
+  const jan1 = Date.UTC(date.getUTCFullYear(), 0, 1)
+  const doy  = Math.floor((nowMs - jan1) / 86400000) + 1
+  const B    = (360 / 365 * (doy - 81)) * DEG
+  // Spencer simplified solar declination (same formula as muf-luf.js)
+  const declRad = 23.45 * Math.sin(B) * DEG
+  const EqT    = 9.87 * Math.sin(2 * B) - 7.53 * Math.cos(B) - 1.5 * Math.sin(B)
+  const utcMin = date.getUTCHours() * 60 + date.getUTCMinutes() + date.getUTCSeconds() / 60
+  const subLon = (720 - utcMin - EqT) / 4   // longitude where sun is overhead (degrees)
+
+  // Generate one terminator lat per longitude step across full globe
+  const pts = []
+  for (let lon = -180; lon <= 180; lon++) {
+    const h   = (lon - subLon) * DEG
+    const lat = Math.atan(-Math.cos(h) / Math.tan(declRad)) / DEG
+    pts.push([lon, lat])
+  }
+
+  // Which pole is dark? decl < 0 → northern winter → north pole is night
+  const northIsNight = declRad < 0
+
+  // Check if map-center (KJ5NUJ lat/lon ≈ 30°N, -89°W) is in darkness
+  const h0 = (-89 - subLon) * DEG
+  const sinAlt = Math.sin(30 * DEG) * Math.sin(declRad) + Math.cos(30 * DEG) * Math.cos(declRad) * Math.cos(h0)
+
+  return { pts, northIsNight, centerIsNight: sinAlt < 0 }
+}
+
 // EM50JI home position
 const HOME = { lat: 30.35, lon: -89.15, grid: 'EM50JI', call: 'KJ5NUJ' }
 
@@ -94,6 +126,41 @@ function RBNMap({ mode, rbnSpots, potaSpots, callsign }) {
   const pathGen = useMemo(() => geoPath(projection), [projection])
   const homeXY = projection([HOME.lon, HOME.lat])
 
+  // ---- Terminator: recompute every 60 s (pure client-side math) ----
+  const [termNow, setTermNow] = useState(Date.now())
+  useEffect(() => {
+    const id = setInterval(() => setTermNow(Date.now()), 60000)
+    return () => clearInterval(id)
+  }, [])
+
+  const { terminatorLinePath, nightFillPath } = useMemo(() => {
+    const { pts, northIsNight, centerIsNight } = computeTerminator(termNow)
+    const xy = pts.map(([lon, lat]) => projection([lon, lat]))
+
+    const lineD = xy.map(([x, y], i) =>
+      `${i ? 'L' : 'M'}${x.toFixed(1)},${y.toFixed(1)}`
+    ).join('')
+
+    // Does the terminator curve actually cross the visible map bounds?
+    const crosses = pts.some(
+      ([lon, lat]) => lon >= -130 && lon <= 60 && lat >= -10 && lat <= 75
+    )
+
+    let nightD = null
+    if (!crosses) {
+      // Terminator is entirely outside the viewport — full day or full night
+      if (centerIsNight) nightD = `M0,0 L${VP_W},0 L${VP_W},${VP_H} L0,${VP_H} Z`
+    } else {
+      // Close the polygon via the dark pole's edge (well outside viewport so
+      // the clip-path trims cleanly)
+      const first = xy[0], last = xy[xy.length - 1]
+      const edgeY = northIsNight ? -200 : VP_H + 200
+      nightD = `${lineD} L${last[0].toFixed(1)},${edgeY} L${first[0].toFixed(1)},${edgeY} Z`
+    }
+
+    return { terminatorLinePath: lineD, nightFillPath: nightD }
+  }, [termNow, projection])
+
   const rbnSpotsWithPos = useMemo(() =>
     rbnSpots
       .map(s => {
@@ -123,10 +190,31 @@ function RBNMap({ mode, rbnSpots, potaSpots, callsign }) {
       preserveAspectRatio="none"
       style={{ width: '100%', height: '100%', display: 'block', background: '#0a0f0a', margin: 0, padding: 0 }}
     >
+      <defs>
+        <clipPath id="map-clip">
+          <rect x={0} y={0} width={VP_W} height={VP_H} />
+        </clipPath>
+        <filter id="twi-blur" x="-15%" y="-15%" width="130%" height="130%">
+          <feGaussianBlur stdDeviation="14" />
+        </filter>
+      </defs>
+
       <path d={pathGen(graticule)} fill="none" stroke="#0f1a0f" strokeWidth={0.5} />
       {countries.features.map((f, i) => (
         <path key={i} d={pathGen(f)} fill="#0c160c" stroke="#1a3a1a" strokeWidth={0.4} />
       ))}
+
+      {/* Grey-line overlay — rendered above map tiles, below spot dots */}
+      {nightFillPath && (
+        <g clipPath="url(#map-clip)">
+          {/* Soft twilight band: blurred night polygon feathers the edge */}
+          <path d={nightFillPath} fill="rgba(0,0,40,0.13)" filter="url(#twi-blur)" />
+          {/* Solid night fill */}
+          <path d={nightFillPath} fill="rgba(0,0,30,0.20)" />
+          {/* Amber terminator line */}
+          <path d={terminatorLinePath} fill="none" stroke="rgba(255,185,50,0.50)" strokeWidth={1.5} />
+        </g>
+      )}
 
       {mode === 'rbn' ? (
         <>
