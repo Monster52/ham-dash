@@ -128,12 +128,15 @@ export async function sendRigCommand(cmd) {
       return { ok: true }
     }
     if (cmd === 'init') {
-      // Stop any pending retry and immediately attempt to (re)connect.
-      // Returns xcvr name on success so the UI can confirm which rig responded.
       if (retryTimer)   { clearTimeout(retryTimer);    retryTimer   = null }
       if (pollInterval) { clearInterval(pollInterval); pollInterval = null }
       try {
         const xcvr = await xmlrpc('rig.get_xcvr')
+        // rig.set_xcvr tells FLRig to close and reopen the serial port — same as
+        // Config > Setup > Transceiver > Init in the FLRig GUI.
+        await xmlrpc('rig.set_xcvr', [xcvr])
+        // Give FLRig ~2 s to open the port and finish CAT init before polling.
+        await new Promise(r => setTimeout(r, 2000))
         await xmlrpc('rig.get_update')
         startPolling()
         return { ok: true, xcvr: xcvr || 'unknown' }
