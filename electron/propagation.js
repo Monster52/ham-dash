@@ -47,6 +47,8 @@ async function fetchKC2GStations() {
     const stations = JSON.parse(body)
     const now = Date.now()
 
+    console.log(`[propagation] KC2G now=${now} (${new Date(now).toISOString()})`)
+
     // Iterate every station — accept both latitude/longitude and lat/lon field names.
     // Filter first across the full list, then sort survivors by distance.
     const candidates = []
@@ -59,14 +61,39 @@ async function fetchKC2GStations() {
       const lon    = parseFloat(rawLon) > 180 ? parseFloat(rawLon) - 360 : parseFloat(rawLon)
       if (isNaN(lat) || isNaN(lon)) continue
 
-      const distKm = haversineKm(HOME_LAT, HOME_LON, lat, lon)
-      const ageMin = s.time ? (now - new Date(s.time).getTime()) / 60000 : Infinity
+      const distKm  = haversineKm(HOME_LAT, HOME_LON, lat, lon)
+      const parsedT = s.time ? new Date(s.time) : null
+      const ageMs   = parsedT ? now - parsedT.getTime() : Infinity
+      const ageMin  = ageMs / 60000
+
+      // Log every station within 3500km regardless of outcome
+      if (distKm <= 3500) {
+        const code = s.station?.ursiCode || s.station?.name?.split(/[\s,]/)[0] || '?'
+        console.log('[propagation] KC2G check:', {
+          code,
+          raw_time:       s.time ?? 'null',
+          parsed_time:    parsedT ? parsedT.toISOString() : 'INVALID',
+          age_ms:         isFinite(ageMs) ? Math.round(ageMs) : 'Infinity',
+          age_min:        isFinite(ageMin) ? +ageMin.toFixed(2) : 'Infinity',
+          raw_cs:         s.cs ?? 'null',
+          dist_km:        Math.round(distKm),
+          raw_mufd:       s.mufd ?? 'null',
+          raw_fof2:       s.fof2 ?? 'null',
+          passes_mufd:    s.mufd != null,
+          passes_fof2:    s.fof2 != null,
+          passes_cs:      `${s.cs} > 0 → ${s.cs != null && s.cs > 0}`,
+          passes_age:     `${+ageMin.toFixed(2)} <= 90 → ${isFinite(ageMin) && ageMin >= 0 && ageMin <= 90}`,
+          passes_dist:    `${Math.round(distKm)} <= 3000 → ${distKm <= 3000}`,
+          PASSES_ALL:     s.mufd != null && s.fof2 != null && s.cs != null && s.cs > 0 &&
+                          isFinite(ageMin) && ageMin >= 0 && ageMin <= 90 && distKm <= 3000,
+        })
+      }
 
       if (
         s.mufd != null &&
         s.fof2 != null &&
         s.cs != null && s.cs > 0 &&
-        ageMin >= 0 && ageMin <= 90 &&
+        isFinite(ageMin) && ageMin >= 0 && ageMin <= 90 &&
         distKm <= 3000
       ) {
         candidates.push({ s, lat, lon, distKm, ageMin })
