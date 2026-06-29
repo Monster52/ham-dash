@@ -17,7 +17,7 @@ export default function SettingsPanel({ onClose }) {
   }, [settings])
 
   useEffect(() => {
-    window.api?.apiserver?.getStatus().then(setApiStatus)
+    window.api?.apiserver?.getStatus()?.then(setApiStatus)
   }, [])
 
   const handleChange = (key, value) => {
