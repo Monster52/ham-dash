@@ -235,6 +235,7 @@ async function fetchHamQSL() {
 }
 
 export function getCachedIonoResult() { return cachedIonoResult }
+export function getCachedSunData()    { return sunData }
 
 export function startPropagationTimer(onData) {
   dataCallback = onData

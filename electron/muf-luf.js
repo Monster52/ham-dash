@@ -1,8 +1,12 @@
-import { dLayerScore } from './band-conditions-rating.js'
+import { dLayerScore }      from './band-conditions-rating.js'
+import { getCachedSunData } from './propagation.js'
 
 function deg2rad(d) { return d * Math.PI / 180 }
 
+function lerp(a, b, t) { return a + (b - a) * Math.max(0, Math.min(1, t)) }
+
 // Spencer/NOAA simplified solar elevation (sin of altitude, clamped ≥ 0).
+// Used as fallback when sun-time data isn't available yet.
 function solarElevationSin(lat, lon, utcMs) {
   const date = new Date(utcMs)
   const startOfYear = Date.UTC(date.getUTCFullYear(), 0, 1)
@@ -18,22 +22,51 @@ function solarElevationSin(lat, lon, utcMs) {
   return Math.max(0, sinAlt)
 }
 
-// SFI-formula fallback MUF (vertical, MHz).
+// Piecewise F-layer ionization factor driven by real sunrise-sunset.org sun times.
 //
-// Calibration anchor: hamdeck.com reference shows ~29.3 MHz MUF at
-// SFI=157, Kp=0.0 (calm). foF2 at SFI=157 = (157-40)*0.072+2.5 = 11.92.
-// Required multiplier to hit 29.3: 29.3 / 11.92 ≈ 2.46 (not the classic
-// 3.0 "3000km hop" factor, which runs hot for a general usable-window
-// headline figure rather than a long low-angle DX hop).
+//   civil dawn → sunrise   : 0.20 → 0.50  (steep — rapid dawn ionization)
+//   sunrise    → solar noon : 0.50 → 1.00  (gradual daytime buildup)
+//   solar noon → sunset    : 1.00 → 0.50  (symmetric afternoon decay)
+//   sunset     → civil dusk : 0.50 → 0.20  (rapid dusk recombination)
+//   night (outside above)  : 0.20          (residual F2 ionization floor)
 //
-// Also applies a mild K-index discount: elevated geomagnetic activity
-// depresses the F-layer MUF too, not just LUF — a K=4+ active/storm
-// period should pull MUF down somewhat, matching real-world ionosonde
-// behavior during disturbed conditions.
-function sfiMuf(sfi, k) {
-  const foF2 = Math.max(1, (sfi - 40) * 0.072 + 2.5)
-  const kPenalty = 1 - Math.min(0.15, Math.max(0, (k - 2)) * 0.025)  // mild, caps at -15%
-  return Math.round(foF2 * 2.46 * kPenalty * 10) / 10
+// Falls back to solarElevationSin-based approximation when sun-time data is
+// unavailable (early startup before sunrise-sunset.org fetch completes).
+function computeDayFactor(lat, lon, nowMs = Date.now()) {
+  const sun = getCachedSunData()
+
+  if (sun?.civil_twilight_begin) {
+    const dawn = new Date(sun.civil_twilight_begin).getTime()
+    const rise = new Date(sun.sunrise).getTime()
+    const noon = new Date(sun.solar_noon).getTime()
+    const set  = new Date(sun.sunset).getTime()
+    const dusk = new Date(sun.civil_twilight_end).getTime()
+
+    if (nowMs < dawn) return 0.20
+    if (nowMs < rise) return lerp(0.20, 0.50, (nowMs - dawn) / (rise - dawn))
+    if (nowMs < noon) return lerp(0.50, 1.00, (nowMs - rise) / (noon - rise))
+    if (nowMs < set)  return lerp(1.00, 0.50, (nowMs - noon) / (set  - noon))
+    if (nowMs < dusk) return lerp(0.50, 0.20, (nowMs - set)  / (dusk - set))
+    return 0.20
+  }
+
+  // Fallback: map solar elevation sin to the same 0.20–1.00 range
+  return 0.20 + solarElevationSin(lat, lon, nowMs) * 0.80
+}
+
+// SFI-formula fallback MUF (MHz, 3000 km obliquity).
+//
+// Calibration anchor (hamdeck.com, daytime mid-latitude, solar noon):
+//   SFI=157, Kp=0 → MUF ≈ 29.3 MHz
+//   foF2 = (157-40)*0.072 + 2.5 = 10.924
+//   Required multiplier at dayFactor=1.0: 29.3 / 10.924 ≈ 2.68
+//
+// Mild K-index discount: elevated geomagnetic activity depresses F2-MUF;
+// K≤2 no penalty, caps at −15% at K=8.
+function sfiMuf(sfi, k, dayFactor) {
+  const foF2     = Math.max(1, (sfi - 40) * 0.072 + 2.5) * dayFactor
+  const kPenalty = 1 - Math.min(0.15, Math.max(0, (k - 2) * 0.025))
+  return Math.round(foF2 * 2.68 * kPenalty * 10) / 10
 }
 
 // LUF estimate from solar zenith, X-ray flux, and K-index.
@@ -61,21 +94,23 @@ function computeLuf(propData, lat, lon) {
   return Math.round(Math.max(1.8, Math.min(12, lufRaw)) * 10) / 10
 }
 
-// Compute MUF and LUF.  ionoResult is the cachedIonoResult from propagation.js
-// (may be null if no valid station).  Falls back to SFI formula when null.
+// Compute MUF and LUF.  ionoResult is getCachedIonoResult() from propagation.js
+// (may be null if no valid station found).  Falls back to SFI formula when null.
 export function computeMufLuf(propData, lat, lon, ionoResult) {
   const sfi = parseFloat(propData.sfi) || 70
+  const k   = parseFloat(propData.kp ?? propData.kindex) || 0
 
   let mufMHz, mufSource, mufStationCode, mufStationDistKm, mufAgeMin
 
   if (ionoResult?.mufd != null) {
     mufMHz           = Math.round(ionoResult.mufd * 10) / 10
     mufSource        = 'measured'
-    mufStationCode   = ionoResult.stationCode  || null
-    mufStationDistKm = ionoResult.distKm       ?? null
-    mufAgeMin        = ionoResult.ageMin        ?? null
+    mufStationCode   = ionoResult.stationCode || null
+    mufStationDistKm = ionoResult.distKm      ?? null
+    mufAgeMin        = ionoResult.ageMin       ?? null
   } else {
-    mufMHz           = sfiMuf(sfi, parseFloat(propData.kp ?? propData.kindex) || 0)
+    const dayFactor  = computeDayFactor(lat, lon)
+    mufMHz           = sfiMuf(sfi, k, dayFactor)
     mufSource        = 'estimated'
     mufStationCode   = null
     mufStationDistKm = null
@@ -84,8 +119,7 @@ export function computeMufLuf(propData, lat, lon, ionoResult) {
 
   const lufMHz = computeLuf(propData, lat, lon)
 
-  // If LUF somehow exceeds MUF (e.g. severe storm + no usable ionosphere),
-  // clamp LUF to MUF so the range bar doesn't invert.
+  // Clamp LUF to MUF so the range bar never inverts (e.g. severe storm).
   const clampedLuf = Math.min(lufMHz, mufMHz)
 
   return {
