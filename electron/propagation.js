@@ -12,8 +12,8 @@ let cachedNoaaResult = null  // { kp, sfi, fetchedAt }
 let lastHamQSLData   = null  // { sfi, aindex, kindex, xray, sunspots, bands, updated }
 let sunData          = null  // sunrise-sunset.org results object
 
-const HOME_LAT    =  30.35
-const HOME_LON    = -89.15
+const HOME_LAT    =  30.3958
+const HOME_LON    = -89.1250
 const KC2G_URL    = 'https://prop.kc2g.com/api/stations.json'
 const NOAA_ALERT  = 'https://services.swpc.noaa.gov/products/noaa-geophysical-alert.json'
 const NOAA_KP     = 'https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json'
@@ -36,21 +36,6 @@ function haversineKm(lat1, lon1, lat2, lon2) {
   return Math.round(R * 2 * Math.asin(Math.sqrt(a)))
 }
 
-function scoreStation(s, distKm, now) {
-  if (!s.cs || s.cs <= 0) return -1
-  if (!s.time) return -1
-  const ageMs  = now - new Date(s.time).getTime()
-  const ageMin = ageMs / 60000
-  if (ageMin >= 720 || ageMin < 0) return -1
-
-  const ageFactor  = 1 - (ageMin / 720)
-  const distFactor = 1 - Math.min(distKm / 10000, 1)
-  const latFactor  = 1 - Math.min(Math.abs(s.station.latitude - HOME_LAT) / 90, 1)
-  const csFactor   = Math.min(s.cs / 100, 1)
-
-  return 0.45 * ageFactor + 0.25 * distFactor + 0.20 * latFactor + 0.10 * csFactor
-}
-
 async function fetchKC2GStations() {
   try {
     const { body, status } = await httpGet(KC2G_URL)
@@ -62,49 +47,73 @@ async function fetchKC2GStations() {
     const stations = JSON.parse(body)
     const now = Date.now()
 
-    const scored = []
+    // Compute distance + age for every station, then log top 8 for diagnostics.
+    const all = []
     for (const s of stations) {
       if (!s.station?.latitude || !s.station?.longitude) continue
-      const stationLat = parseFloat(s.station.latitude)
-      const lonSigned  = s.station.longitude > 180 ? s.station.longitude - 360 : s.station.longitude
-      if (HOME_LAT > 0 && stationLat < -15) continue
-      const lonDiff = Math.abs(lonSigned - HOME_LON)
-      if (lonDiff > 90) continue
-      const distKm = haversineKm(HOME_LAT, HOME_LON, stationLat, lonSigned)
-      if (distKm > 4000) continue
-      const score = scoreStation(s, distKm, now)
-      if (score < 0) continue
-      scored.push({ s, distKm, score })
+      const lat    = parseFloat(s.station.latitude)
+      const lon    = s.station.longitude > 180 ? s.station.longitude - 360 : parseFloat(s.station.longitude)
+      const distKm = haversineKm(HOME_LAT, HOME_LON, lat, lon)
+      const ageMin = s.time ? (now - new Date(s.time).getTime()) / 60000 : Infinity
+      all.push({ s, lat, lon, distKm, ageMin })
+    }
+    all.sort((a, b) => a.distKm - b.distKm)
+
+    console.log('[propagation] KC2G top-8 closest stations:')
+    for (const { s, distKm, ageMin } of all.slice(0, 8)) {
+      const code = s.station.ursiCode || s.station.name?.split(/[\s,]/)[0] || '?'
+      console.log(
+        `  ${code.padEnd(6)} ${String(s.station.name || '').padEnd(24)}` +
+        ` dist=${Math.round(distKm)}km` +
+        ` age=${Math.round(ageMin)}min` +
+        ` cs=${s.cs ?? 'null'}` +
+        ` fof2=${s.fof2 ?? 'null'}` +
+        ` mufd=${s.mufd ?? 'null'}`
+      )
     }
 
-    if (scored.length === 0) {
-      console.log('[propagation] KC2G: no valid stations')
+    // Apply exact filters from tested standalone algorithm:
+    //   mufd/fof2 non-null, cs > 0, age ≤ 90 min, distance ≤ 3000 km
+    const candidates = all.filter(({ s, distKm, ageMin }) =>
+      s.mufd != null &&
+      s.fof2 != null &&
+      s.cs != null && s.cs > 0 &&
+      ageMin >= 0 && ageMin <= 90 &&
+      distKm <= 3000
+    )
+
+    console.log(`[propagation] KC2G: ${candidates.length} candidate(s) passed filters (mufd≠null, cs>0, age≤90min, dist≤3000km)`)
+
+    if (candidates.length === 0) {
+      console.log('[propagation] KC2G: no station passed filters')
       cachedIonoResult = null
       return
     }
 
-    scored.sort((a, b) => b.score - a.score)
-    const { s: best, distKm, score } = scored[0]
-
-    if (score < 0.25) {
-      console.log('[propagation] KC2G: best score too low:', score.toFixed(3))
-      cachedIonoResult = null
-      return
-    }
-
-    const ageMin = Math.round((now - new Date(best.time).getTime()) / 60000)
-    const stationCode = best.station.ursiCode
+    // Pick the closest passing candidate (already sorted by distKm).
+    const { s: best, distKm, ageMin } = candidates[0]
+    const ageMinRounded = Math.round(ageMin)
+    const stationCode   = best.station.ursiCode
       || best.station.name?.split(/[\s,]/)[0]
       || 'IONO'
 
     cachedIonoResult = {
-      fof2: best.fof2, mufd: best.mufd, stationCode,
+      fof2:        best.fof2,
+      mufd:        best.mufd,
+      stationCode,
       stationName: best.station.name || stationCode,
-      distKm, ageMin, cs: best.cs, score, adjusted: false,
-      fetchedAt: now,
+      distKm:      Math.round(distKm),
+      ageMin:      ageMinRounded,
+      cs:          best.cs,
+      fetchedAt:   now,
     }
 
-    console.log(`[propagation] KC2G: ${stationCode} (${best.station.name}, ${distKm}km, cs:${best.cs}, score:${score.toFixed(3)})`)
+    console.log(
+      `[propagation] KC2G: selected ${stationCode}` +
+      ` (${best.station.name}, ${Math.round(distKm)}km,` +
+      ` age=${ageMinRounded}min, cs=${best.cs},` +
+      ` fof2=${best.fof2}, mufd=${best.mufd})`
+    )
   } catch (e) {
     console.error('[propagation] KC2G fetch failed:', e.message)
   }
