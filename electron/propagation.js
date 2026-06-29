@@ -47,50 +47,55 @@ async function fetchKC2GStations() {
     const stations = JSON.parse(body)
     const now = Date.now()
 
-    // Compute distance + age for every station, then log top 8 for diagnostics.
-    const all = []
+    // Iterate every station — accept both latitude/longitude and lat/lon field names.
+    // Filter first across the full list, then sort survivors by distance.
+    const candidates = []
     for (const s of stations) {
-      if (!s.station?.latitude || !s.station?.longitude) continue
-      const lat    = parseFloat(s.station.latitude)
-      const lon    = s.station.longitude > 180 ? s.station.longitude - 360 : parseFloat(s.station.longitude)
+      const rawLat = s.station?.latitude ?? s.station?.lat
+      const rawLon = s.station?.longitude ?? s.station?.lon
+      if (rawLat == null || rawLon == null) continue
+
+      const lat    = parseFloat(rawLat)
+      const lon    = parseFloat(rawLon) > 180 ? parseFloat(rawLon) - 360 : parseFloat(rawLon)
+      if (isNaN(lat) || isNaN(lon)) continue
+
       const distKm = haversineKm(HOME_LAT, HOME_LON, lat, lon)
       const ageMin = s.time ? (now - new Date(s.time).getTime()) / 60000 : Infinity
-      all.push({ s, lat, lon, distKm, ageMin })
-    }
-    all.sort((a, b) => a.distKm - b.distKm)
 
-    console.log('[propagation] KC2G top-8 closest stations:')
-    for (const { s, distKm, ageMin } of all.slice(0, 8)) {
-      const code = s.station.ursiCode || s.station.name?.split(/[\s,]/)[0] || '?'
-      console.log(
-        `  ${code.padEnd(6)} ${String(s.station.name || '').padEnd(24)}` +
-        ` dist=${Math.round(distKm)}km` +
-        ` age=${Math.round(ageMin)}min` +
-        ` cs=${s.cs ?? 'null'}` +
-        ` fof2=${s.fof2 ?? 'null'}` +
-        ` mufd=${s.mufd ?? 'null'}`
-      )
+      if (
+        s.mufd != null &&
+        s.fof2 != null &&
+        s.cs != null && s.cs > 0 &&
+        ageMin >= 0 && ageMin <= 90 &&
+        distKm <= 3000
+      ) {
+        candidates.push({ s, lat, lon, distKm, ageMin })
+      }
     }
-
-    // Apply exact filters from tested standalone algorithm:
-    //   mufd/fof2 non-null, cs > 0, age ≤ 90 min, distance ≤ 3000 km
-    const candidates = all.filter(({ s, distKm, ageMin }) =>
-      s.mufd != null &&
-      s.fof2 != null &&
-      s.cs != null && s.cs > 0 &&
-      ageMin >= 0 && ageMin <= 90 &&
-      distKm <= 3000
-    )
+    candidates.sort((a, b) => a.distKm - b.distKm)
 
     console.log(`[propagation] KC2G: ${candidates.length} candidate(s) passed filters (mufd≠null, cs>0, age≤90min, dist≤3000km)`)
 
-    if (candidates.length === 0) {
+    if (candidates.length > 0) {
+      console.log('[propagation] KC2G top candidates (filtered, closest first):')
+      for (const { s, distKm, ageMin } of candidates.slice(0, 8)) {
+        const code = s.station.ursiCode || s.station.name?.split(/[\s,]/)[0] || '?'
+        console.log(
+          `  ${code.padEnd(6)} ${String(s.station.name || '').padEnd(24)}` +
+          ` dist=${Math.round(distKm)}km` +
+          ` age=${Math.round(ageMin)}min` +
+          ` cs=${s.cs}` +
+          ` fof2=${s.fof2}` +
+          ` mufd=${s.mufd}`
+        )
+      }
+    } else {
       console.log('[propagation] KC2G: no station passed filters')
       cachedIonoResult = null
       return
     }
 
-    // Pick the closest passing candidate (already sorted by distKm).
+    // Pick the closest passing candidate.
     const { s: best, distKm, ageMin } = candidates[0]
     const ageMinRounded = Math.round(ageMin)
     const stationCode   = best.station.ursiCode
