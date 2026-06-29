@@ -87,16 +87,23 @@ export default function RigPanel() {
   }
 
   const [initing, setIniting] = useState(false)
-  const [initSuccess, setInitSuccess] = useState(false)
+  const [initResult, setInitResult] = useState(null) // null | 'ok' | 'err'
+  const [initLabel, setInitLabel] = useState('INIT')
 
   const handleInit = async () => {
     setIniting(true)
+    setInitResult(null)
+    setInitLabel('...')
     const result = await window.api?.rig?.init()
     setIniting(false)
     if (result?.ok) {
-      setInitSuccess(true)
-      setTimeout(() => setInitSuccess(false), 2000)
+      setInitResult('ok')
+      setInitLabel(result.xcvr ? result.xcvr.toUpperCase() : 'OK ✓')
+    } else {
+      setInitResult('err')
+      setInitLabel('NO FLRIG')
     }
+    setTimeout(() => { setInitResult(null); setInitLabel('INIT') }, 3000)
   }
 
   const connected = rigStatus?.connected
@@ -124,13 +131,18 @@ export default function RigPanel() {
               fontSize: '0.6rem',
               padding: '2px 8px',
               background: 'transparent',
-              border: `1px solid ${initSuccess ? '#00ff41' : '#ffb000'}`,
-              color: initSuccess ? '#00ff41' : '#ffb000',
+              border: `1px solid ${initResult === 'err' ? '#ff2200' : initResult === 'ok' ? '#00ff41' : '#ffb000'}`,
+              color: initResult === 'err' ? '#ff2200' : initResult === 'ok' ? '#00ff41' : '#ffb000',
               cursor: initing ? 'default' : 'pointer',
-              letterSpacing: '0.05em'
+              letterSpacing: '0.05em',
+              maxWidth: '90px',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap'
             }}
+            title={initResult === 'err' ? 'FLRig not responding — start FLRig and click INIT' : undefined}
           >
-            {initing ? '...' : initSuccess ? 'OK ✓' : 'INIT'}
+            {initLabel}
           </button>
         </span>
       </div>

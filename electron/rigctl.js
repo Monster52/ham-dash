@@ -128,10 +128,17 @@ export async function sendRigCommand(cmd) {
       return { ok: true }
     }
     if (cmd === 'init') {
+      // Stop any pending retry and immediately attempt to (re)connect.
+      // Returns xcvr name on success so the UI can confirm which rig responded.
+      if (retryTimer)   { clearTimeout(retryTimer);    retryTimer   = null }
+      if (pollInterval) { clearInterval(pollInterval); pollInterval = null }
       try {
+        const xcvr = await xmlrpc('rig.get_xcvr')
         await xmlrpc('rig.get_update')
-        return { ok: true }
+        startPolling()
+        return { ok: true, xcvr: xcvr || 'unknown' }
       } catch (err) {
+        scheduleRetry()
         return { ok: false, error: err.message }
       }
     }
